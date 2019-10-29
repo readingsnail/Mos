@@ -22,7 +22,6 @@
 		0BC2AD2F20F3BA090084416B /* PreferencesContributorsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC2AD2E20F3BA090084416B /* PreferencesContributorsViewController.swift */; };
 		0BD39F68204EFC6C000CCC42 /* StatusItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BD39F67204EFC6C000CCC42 /* StatusItemManager.swift */; };
 		0BE4C93B20617C6E0001EA0E /* ScrollFiller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE4C93A20617C6E0001EA0E /* ScrollFiller.swift */; };
-		132053348F98F0905CCB1D51 /* libPods-Mos.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1BBF306245FB221F632A152A /* libPods-Mos.a */; };
 		22003C6E1E8555F0001220BC /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22003C6D1E8555F0001220BC /* Utils.swift */; };
 		22142DA41E25344E00E4BFBF /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22142DA31E25344E00E4BFBF /* AppDelegate.swift */; };
 		22142DA61E25344E00E4BFBF /* MonitorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22142DA51E25344E00E4BFBF /* MonitorViewController.swift */; };
@@ -52,6 +51,7 @@
 		23BB4D3121D775D4009B51E9 /* EventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23BB4D3021D775D4009B51E9 /* EventMonitor.swift */; };
 		23E3C96D21DCE8F10098B107 /* StatusItemPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23E3C96C21DCE8F10098B107 /* StatusItemPopoverView.swift */; };
 		23E9673F23613D1100E652F6 /* PreferencesExceptionInputViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23E9673E23613D1100E652F6 /* PreferencesExceptionInputViewController.swift */; };
+		6F6A19043F716EE54DA2AAC4 /* libPods-Mos.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC1CC4115D84907000EEDCD /* libPods-Mos.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -91,7 +91,6 @@
 		0BC2AD2E20F3BA090084416B /* PreferencesContributorsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesContributorsViewController.swift; sourceTree = "<group>"; };
 		0BD39F67204EFC6C000CCC42 /* StatusItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemManager.swift; sourceTree = "<group>"; };
 		0BE4C93A20617C6E0001EA0E /* ScrollFiller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollFiller.swift; sourceTree = "<group>"; };
-		1BBF306245FB221F632A152A /* libPods-Mos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Mos.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		22003C6D1E8555F0001220BC /* Utils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
 		22142DA01E25344E00E4BFBF /* Mos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		22142DA31E25344E00E4BFBF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -129,8 +128,9 @@
 		23BB4D3021D775D4009B51E9 /* EventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventMonitor.swift; sourceTree = "<group>"; };
 		23E3C96C21DCE8F10098B107 /* StatusItemPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemPopoverView.swift; sourceTree = "<group>"; };
 		23E9673E23613D1100E652F6 /* PreferencesExceptionInputViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesExceptionInputViewController.swift; sourceTree = "<group>"; };
-		8900B0ED2C2F0CF2FC25DEAF /* Pods-Mos.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Mos.debug.xcconfig"; path = "Target Support Files/Pods-Mos/Pods-Mos.debug.xcconfig"; sourceTree = "<group>"; };
-		E8B4106804C7167460D323CD /* Pods-Mos.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Mos.release.xcconfig"; path = "Target Support Files/Pods-Mos/Pods-Mos.release.xcconfig"; sourceTree = "<group>"; };
+		2A3B81BD9BE95DBB59D48D07 /* Pods-Mos.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Mos.release.xcconfig"; path = "Target Support Files/Pods-Mos/Pods-Mos.release.xcconfig"; sourceTree = "<group>"; };
+		5CC1CC4115D84907000EEDCD /* libPods-Mos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Mos.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BDC179607B6A5D3C7F24EC0C /* Pods-Mos.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Mos.debug.xcconfig"; path = "Target Support Files/Pods-Mos/Pods-Mos.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,7 +138,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				132053348F98F0905CCB1D51 /* libPods-Mos.a in Frameworks */,
+				6F6A19043F716EE54DA2AAC4 /* libPods-Mos.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -261,8 +261,8 @@
 			children = (
 				22142DA21E25344E00E4BFBF /* Mos */,
 				22142DA11E25344E00E4BFBF /* Products */,
-				2270D90E1E69BA1400C48231 /* Frameworks */,
 				EFA6920C9C4D4D40572952BC /* Pods */,
+				D1F0145B7D2FC22D54587737 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -293,14 +293,6 @@
 				22142DAC1E25344E00E4BFBF /* Info.plist */,
 			);
 			path = Mos;
-			sourceTree = "<group>";
-		};
-		2270D90E1E69BA1400C48231 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				1BBF306245FB221F632A152A /* libPods-Mos.a */,
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		23BB4D2821D74FFA009B51E9 /* StatusItemPopover */ = {
@@ -341,11 +333,19 @@
 			path = Windows;
 			sourceTree = "<group>";
 		};
+		D1F0145B7D2FC22D54587737 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5CC1CC4115D84907000EEDCD /* libPods-Mos.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		EFA6920C9C4D4D40572952BC /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				8900B0ED2C2F0CF2FC25DEAF /* Pods-Mos.debug.xcconfig */,
-				E8B4106804C7167460D323CD /* Pods-Mos.release.xcconfig */,
+				BDC179607B6A5D3C7F24EC0C /* Pods-Mos.debug.xcconfig */,
+				2A3B81BD9BE95DBB59D48D07 /* Pods-Mos.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -357,7 +357,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 22142DC51E25344F00E4BFBF /* Build configuration list for PBXNativeTarget "Mos" */;
 			buildPhases = (
-				178794C14AE34E13F0D86424 /* [CP] Check Pods Manifest.lock */,
+				7D2544E6C3A2E49AAFB38FE6 /* [CP] Check Pods Manifest.lock */,
 				22142D9C1E25344E00E4BFBF /* Sources */,
 				22142D9D1E25344E00E4BFBF /* Frameworks */,
 				22142D9E1E25344E00E4BFBF /* Resources */,
@@ -433,7 +433,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		178794C14AE34E13F0D86424 /* [CP] Check Pods Manifest.lock */ = {
+		7D2544E6C3A2E49AAFB38FE6 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -649,7 +649,7 @@
 		};
 		22142DC61E25344F00E4BFBF /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8900B0ED2C2F0CF2FC25DEAF /* Pods-Mos.debug.xcconfig */;
+			baseConfigurationReference = BDC179607B6A5D3C7F24EC0C /* Pods-Mos.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -673,7 +673,7 @@
 		};
 		22142DC71E25344F00E4BFBF /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E8B4106804C7167460D323CD /* Pods-Mos.release.xcconfig */;
+			baseConfigurationReference = 2A3B81BD9BE95DBB59D48D07 /* Pods-Mos.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
