@@ -118,16 +118,24 @@ class ScrollUtils {
     // 判断 LaunchPad 是否激活
     var launchpadActiveCache = false
     var launchpadLastDetectTime = 0.0
-    private func isLaunchpadActive() -> Bool {
-        // 如果距离上次检测时间大于 1000ms, 则重新检测一遍, 否则直接返回上次的结果
+    private func isLaunchpadActive(with targetBID: String? = nil) -> Bool {
+        // 如果距离上次检测时间大于 1s, 则重新检测一遍, 否则直接返回上次的结果
         let nowTime = NSDate().timeIntervalSince1970
         if nowTime - launchpadLastDetectTime > 1.0 {
-            let windowInfoList = CGWindowListCopyWindowInfo(CGWindowListOption.optionOnScreenOnly, CGWindowID(0)) as [AnyObject]?
-            for windowInfo in windowInfoList! {
-                let windowName = windowInfo[kCGWindowName]!
-                if windowName != nil && windowName as! String == "LPSpringboard" {
+            if #available(OSX 10.15, *) {
+                // Launchpadu 应用在 10.15 下莫名其妙合并到了 dock 内, 不过这样反而快了
+                if let bid = targetBID, bid == "com.apple.dock" {
                     launchpadActiveCache = true
                     return true
+                }
+            } else {
+                let windowInfoList = CGWindowListCopyWindowInfo(CGWindowListOption.optionOnScreenOnly, CGWindowID(0)) as [AnyObject]?
+                for windowInfo in windowInfoList! {
+                    let windowName = windowInfo[kCGWindowName]!
+                    if windowName != nil && windowName as! String == "LPSpringboard" {
+                        launchpadActiveCache = true
+                        return true
+                    }
                 }
             }
             launchpadActiveCache = false
@@ -140,7 +148,7 @@ class ScrollUtils {
     var missioncontrolActiveCache = false
     var missioncontrolLastDetectTime = 0.0
     private func isMissioncontrolActive() -> Bool {
-        // 如果距离上次检测时间大于 1000ms, 则重新检测一遍, 否则直接返回上次的结果
+        // 如果距离上次检测时间大于 1s, 则重新检测一遍, 否则直接返回上次的结果
         let nowTime = NSDate().timeIntervalSince1970
         if nowTime - missioncontrolLastDetectTime > 1.0 {
             let windowInfoList = CGWindowListCopyWindowInfo(CGWindowListOption.optionOnScreenOnly, CGWindowID(0)) as [AnyObject]?
@@ -169,10 +177,10 @@ class ScrollUtils {
 
     // 获取应用
     // 基础参数
-    func isEnableSmoothOn(application: ExceptionalApplication?) -> Bool {
+    func isEnableSmoothOn(application: ExceptionalApplication?, targetBundleId: String?) -> Bool {
         if Options.shared.scroll.smooth && !ScrollCore.shared.blockSmooth {
             // 针对 Launchpad 特殊处理, 不论是否在列表内均禁用平滑
-            if isLaunchpadActive() {
+            if isLaunchpadActive(with: targetBundleId) {
                 return false
             }
             if let target = application {
@@ -184,10 +192,10 @@ class ScrollUtils {
             return false
         }
     }
-    func isEnableReverseOn(application: ExceptionalApplication?) -> Bool {
+    func isEnableReverseOn(application: ExceptionalApplication?, targetBundleId: String?) -> Bool {
         if Options.shared.scroll.reverse {
-            // 针对 Launchpad 特殊处理
-            if isLaunchpadActive() {
+            // 针对 Launchpad 特殊处理, 允许用户自行判断是否翻转
+            if isLaunchpadActive(with: targetBundleId) {
                 if let launchpad = Options.shared.global.applications.get(from: "com.apple.launchpad.launcher") {
                     return launchpad.scroll.reverse
                 }
@@ -202,18 +210,25 @@ class ScrollUtils {
         }
     }
     // 高级参数
+    func optionsDashOn(application: ExceptionalApplication?) -> Int {
+        if let targetApplication = application {
+            return targetApplication.followGlobal ? Options.shared.scroll.dash ?? 0 : targetApplication.scroll.dash ?? 0
+        } else {
+            return Options.shared.scroll.dash ?? 0
+        }
+    }
     func optionsToggleOn(application: ExceptionalApplication?) -> Int {
         if let targetApplication = application {
-            return targetApplication.followGlobal ? Options.shared.scroll.toggle : targetApplication.scroll.toggle
+            return targetApplication.followGlobal ? Options.shared.scroll.toggle ?? 0 : targetApplication.scroll.toggle ?? 0
         } else {
-            return Options.shared.scroll.toggle
+            return Options.shared.scroll.toggle ?? 0
         }
     }
     func optionsBlockOn(application: ExceptionalApplication?) -> Int {
         if let targetApplication = application {
-            return targetApplication.followGlobal ? Options.shared.scroll.block : targetApplication.scroll.block
+            return targetApplication.followGlobal ? Options.shared.scroll.block ?? 0 : targetApplication.scroll.block ?? 0
         } else {
-            return Options.shared.scroll.block
+            return Options.shared.scroll.block ?? 0
         }
     }
     func optionsStepOn(application: ExceptionalApplication?) -> Double {

@@ -88,8 +88,8 @@ extension StatusItemManager {
         if let menu = item.menu {
             menu.removeAllItems()
             menu.addItem(withTitle: i18n.needsAccessToAccessibilityControls, action: #selector(accessibilityRequire), keyEquivalent: "").target = self
-            menu.addItem(NSMenuItem.separator())
-            menu.addItem(withTitle: i18n.quit, action: #selector(quitClick), keyEquivalent: "").target = self
+            // Quit
+            Utils.addMenuItemWithSeparator(to: menu, withTitle: i18n.quit, andImage: #imageLiteral(resourceName: "SF.escape"), forAction: #selector(quitClick))
         }
     }
     @objc func accessibilityRequire() {
@@ -100,45 +100,23 @@ extension StatusItemManager {
         if let menu = item.menu {
             // Reset
             menu.removeAllItems()
-            // Hide
-//            menu.addItem(withTitle: i18n.hideIcon, action: #selector(hideStatusItem), keyEquivalent: "").target = selfReset
             // Monitor
-            let monitorItem = menu.addItem(withTitle: i18n.monitor, action: #selector(monitorClick), keyEquivalent: "")
-            monitorItem.target = self
-            monitorItem.image = #imageLiteral(resourceName: "SF.square.stack.3d.down.right")
-            monitorItem.image?.size = NSSize(width: 13, height: 13)
+            Utils.addMenuItem(to: menu, withTitle: i18n.monitor, andImage: #imageLiteral(resourceName: "SF.square.stack.3d.down.right"), forAction: #selector(monitorClick))
             // Preferences
-            let preferencesItem = menu.addItem(withTitle: i18n.preferences, action: #selector(preferencesClick), keyEquivalent: "")
-            preferencesItem.target = self
-            preferencesItem.image = #imageLiteral(resourceName: "SF.gauge")
-            preferencesItem.image?.size = NSSize(width: 13, height: 13)
+            Utils.addMenuItem(to: menu, withTitle: i18n.preferences, andImage: #imageLiteral(resourceName: "SF.gauge"), forAction: #selector(preferencesClick))
             // Quit
-            menu.addItem(NSMenuItem.separator())
-            let quitItem = menu.addItem(withTitle: i18n.quit, action: #selector(quitClick), keyEquivalent: "")
-            quitItem.target = self
-            quitItem.image = #imageLiteral(resourceName: "SF.escape")
-            quitItem.image?.size = NSSize(width: 13, height: 13)
+            Utils.addMenuItemWithSeparator(to: menu, withTitle: i18n.quit, andImage: #imageLiteral(resourceName: "SF.escape"), forAction: #selector(quitClick))
         }
-    }
-    @objc func hideStatusItem() {
-        WindowManager.shared.showWindow(withIdentifier: WINDOW_IDENTIFIER.hideStatusItemWindowController, withTitle: "")
     }
     // 常规菜单
     @objc func buildNormalMenu() {
         if let menu = item.menu {
             // Reset
             menu.removeAllItems()
-            // Perferences
-            let preferencesItem = menu.addItem(withTitle: i18n.preferences, action: #selector(preferencesClick), keyEquivalent: "")
-            preferencesItem.target = self
-            preferencesItem.image = #imageLiteral(resourceName: "SF.gauge")
-            preferencesItem.image?.size = NSSize(width: 13, height: 13)
+            // Preferences
+            Utils.addMenuItem(to: menu, withTitle: i18n.preferences, andImage: #imageLiteral(resourceName: "SF.gauge"), forAction: #selector(preferencesClick))
             // Quit
-            menu.addItem(NSMenuItem.separator())
-            let quitItem = menu.addItem(withTitle: i18n.quit, action: #selector(quitClick), keyEquivalent: "")
-            quitItem.target = self
-            quitItem.image = #imageLiteral(resourceName: "SF.escape")
-            quitItem.image?.size = NSSize(width: 13, height: 13)
+            Utils.addMenuItemWithSeparator(to: menu, withTitle: i18n.quit, andImage: #imageLiteral(resourceName: "SF.escape"), forAction: #selector(quitClick))
         }
     }
     @objc func monitorClick() {

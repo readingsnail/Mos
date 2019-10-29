@@ -11,6 +11,21 @@ import Cocoa
 // 实用方法
 public class Utils {
     
+    // 菜单
+    class func attachImage(to menuItem:NSMenuItem, withImage image: NSImage) {
+        menuItem.image = image
+        menuItem.image?.size = NSSize(width: 13, height: 13)
+    }
+    class func addMenuItem(to menuControl:NSMenu, withTitle title: String, andImage image: NSImage, forAction action: Selector?) {
+        let menuItem = menuControl.addItem(withTitle: title, action: action, keyEquivalent: "")
+        menuItem.target = menuControl
+        attachImage(to: menuItem, withImage: image)
+    }
+    class func addMenuItemWithSeparator(to menuControl:NSMenu, withTitle title: String, andImage image: NSImage, forAction action: Selector?) {
+        menuControl.addItem(NSMenuItem.separator())
+        addMenuItem(to: menuControl, withTitle: title, andImage: image, forAction: action)
+    }
+    
     // 动画
     // 需要设置 allowsImplicitAnimation = true 才能让 contentSize 有动画, https://stackoverflow.com/a/46946957/6727040
     class func groupAnimatorContainer(_ group: (NSAnimationContext?)->Void, completionHandler: @escaping ()->Void = {()}) {
@@ -53,22 +68,6 @@ public class Utils {
             } else {
                 NSApp.terminate(nil)
             }
-        }
-    }
-    
-    // 提示状态栏图标已隐藏
-    class func notificateUserStatusBarIconIsHidden() {
-        // 如果状态栏图标隐藏
-        if Options.shared.global.hideStatusItem {
-            // 定义通知
-            let notification = NSUserNotification()
-            notification.title = "Mos"
-            notification.subtitle = i18n.mosIsRunningInThebackground
-            notification.informativeText = i18n.mosStatusBarIconIsHidden
-            notification.otherButtonTitle = i18n.gotIt
-            notification.actionButtonTitle = i18n.showIt
-            // 发送通知
-            NSUserNotificationCenter.default.deliver(notification)
         }
     }
     

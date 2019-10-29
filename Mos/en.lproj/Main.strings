@@ -7,7 +7,7 @@
 */
 
 // Mointor
-"TUE-3v-CaJ.title" = "          Rendering this chart will affect scrolling performance. Close the window when not in use.";
+"TUE-3v-CaJ.title" = "Rendering this chart will affect scrolling performance. Close the window when not in use.";
 
 // PreferencesWindow
 "cvF-hf-KVW.title" = "Preferences";
@@ -21,14 +21,20 @@
 "dyY-vr-dwT.title" = "Miscellaneous:";
 "xoR-7p-3qj.title" = "Launch on Login";
 "MdS-Nz-zMa.title" = "Automatically launch app on login";
+"hGj-vV-zcY.title" = "Hide Status Bar Icon";
+"bB5-2R-9Da.title" = "Re-run Mos again to show the hidden Icon";
+"cIk-j1-vYt.title" = "You need to re-run Mos from Finder-Application instead of the launch pad. (The launch pad will automatically ignore the launched app)";
 // Advanced
 "iW5-CD-5OC.title" = "Advanced";
+"hOO-M8-I1z.title" = "Dash Key:";
+"Vhz-Rn-lcU.title" = "Disabled";
+"Z59-tN-QjE.title" = "Increase scrolling speed on long pages";
 "bQw-5w-Yv0.title" = "Toggle Key:";
-"cTe-aL-0GQ.title" = "Disable";
+"cTe-aL-0GQ.title" = "Disabled";
 "KnM-kA-wn5.title" = "Change vertical scrolling to horizontal scrolling";
 "ebE-Zf-T98.title" = "Block Key:";
 "iki-Jk-qSr.title" = "Temporarily block smooth scrolling";
-"vFk-37-HRU.title" = "Disable";
+"vFk-37-HRU.title" = "Disabled";
 "B8B-hi-x3v.title" = "Step:";
 "Jan-OY-m70.title" = "Sets the minimum scroll distance";
 "Gcw-Ir-olP.title" = "Speed:";
@@ -47,6 +53,12 @@
 "v26-RK-BtL.title" = "The whitelist mode will make Mos only apply to apps within the exception list.";
 "ThS-Rm-st2.title" = "No One is Special";
 "jaq-Cb-dKM.title" = "You can apply a separate configuration to some apps by clicking the \'+\' button below";
+"dhF-95-kUJ.title" = "Select From Installed Applications";
+"Vp7-0n-aRd.title" = "Manually Input Application Information";
+"kUr-cl-KRm.title" = "Application Name:";
+"Ck5-if-9RS.title" = "Bundle Identifier:";
+"Mdw-fZ-Nyy.title" = "Cancel";
+"2v4-AC-WG5.title" = "Confirm";
 // Updates
 "EWu-DP-7Gj.title" = "Updates";
 "vdI-K4-SBh.title" = "Check for updates:";
@@ -64,13 +76,6 @@
 "ZJY-Yg-Qev.title" = "Contributors";
 "Lhz-x5-X0I.title" = "Translation";
 "GWm-aK-UoV.title" = "Contributors List";
-
-// HideStatusItemWindow
-"WNd-iN-aAG.title" = "Hide the status bar icon";
-"hDs-Yh-11x.title" = "But Mos will continue to work in the background without the status bar icon.";
-"zAs-CP-Wpw.title" = "Once you hide the icon you will not be able to access Mos' preferences. If you want to re-display it, use Activity Mointor to close the Mos app then run Mos again. Then, click on the notification's \'Show it\' button.";
-"ueB-gF-VZ8.title" = "Cancel";
-"hhO-Gh-ldE.title" = "Still hide the status bar icon";
 
 // WelcomeWindow
 "SLb-UR-lz1.title" = "Welcome to Mos";

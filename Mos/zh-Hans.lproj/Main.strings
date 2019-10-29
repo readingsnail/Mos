@@ -7,7 +7,7 @@
 */
 
 // Mointor
-"TUE-3v-CaJ.title" = "          呈现该窗口的数据会显著影响滚动性能, 请仅在需要时开启";
+"TUE-3v-CaJ.title" = "呈现该窗口的数据会显著影响滚动性能, 请仅在需要时开启";
 
 // PreferencesWindow
 "cvF-hf-KVW.title" = "偏好设置";
@@ -26,6 +26,9 @@
 "cIk-j1-vYt.title" = "请从 访达-应用程序 中再次启动 Mos。(启动台会自动忽略已启动的应用程序)";
 // Advanced
 "iW5-CD-5OC.title" = "高级";
+"hOO-M8-I1z.title" = "加速键:";
+"Vhz-Rn-lcU.title" = "不使用";
+"Z59-tN-QjE.title" = "加快在长页面时的滚动速度";
 "bQw-5w-Yv0.title" = "转换键:";
 "cTe-aL-0GQ.title" = "不使用";
 "KnM-kA-wn5.title" = "按下时将垂直方向的滚动变换为水平方向";
@@ -50,6 +53,12 @@
 "v26-RK-BtL.title" = "启用白名单模式后, Mos 仅会对包含在例外列表内的程序启用, 其他的则不受任何影响";
 "ThS-Rm-st2.title" = "没有任何应用程序遭到不平等对待";
 "jaq-Cb-dKM.title" = "你可以点击下方的 \"+\" 来添加一个应用程序以设置其滚动行为";
+"dhF-95-kUJ.title" = "从已安装的应用程序中选择";
+"Vp7-0n-aRd.title" = "手动输入应用程序信息";
+"kUr-cl-KRm.title" = "应用程序名称:";
+"Ck5-if-9RS.title" = "包名称:";
+"Mdw-fZ-Nyy.title" = "取消";
+"2v4-AC-WG5.title" = "确认";
 // Updates
 "EWu-DP-7Gj.title" = "更新";
 "vdI-K4-SBh.title" = "检查更新:";
@@ -67,13 +76,6 @@
 "ZJY-Yg-Qev.title" = "贡献者们";
 "Lhz-x5-X0I.title" = "译者";
 "GWm-aK-UoV.title" = "贡献者名目";
-
-// HideStatusItemWindow
-"WNd-iN-aAG.title" = "隐藏位于状态栏的图标";
-"hDs-Yh-11x.title" = "不过, 即便 Mos 的状态栏图标被隐藏, 它依然会在后台不断地为你平滑鼠标滚动";
-"zAs-CP-Wpw.title" = "一旦你隐藏了状态栏图标, 偏好设置便无法打开. 如果你想再次显示被隐藏的图标, 请使用活动监视器关闭 Mos, 然后重新运行, 并点击通知中出现的 '显示图标' 按钮";
-"ueB-gF-VZ8.title" = "取消";
-"hhO-Gh-ldE.title" = "我要隐藏状态栏的图标";
 
 // WelcomeWindow
 "SLb-UR-lz1.title" = "欢迎使用 Mos";

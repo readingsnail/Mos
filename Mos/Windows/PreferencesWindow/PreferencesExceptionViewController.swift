@@ -16,9 +16,16 @@ class PreferencesExceptionViewController: NSViewController {
     @IBOutlet weak var tableView: NSTableView!
     // 提示层
     @IBOutlet weak var noDataHint: NSView!
+    // 选项菜单
+    @IBOutlet var applicationSourceMenuControl: NSMenu!
+    @IBOutlet weak var selectFromInstalledMenuItem: NSMenuItem!
+    @IBOutlet weak var manuallyInputMenuItem: NSMenuItem!
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        // 设置图标
+        Utils.attachImage(to: selectFromInstalledMenuItem, withImage: #imageLiteral(resourceName: "SF.tray"))
+        Utils.attachImage(to: manuallyInputMenuItem, withImage: #imageLiteral(resourceName: "SF.pencil.and.ellipsis.rectangle"))
         // 读取设置
         syncViewWithOptions()
     }
@@ -45,10 +52,18 @@ class PreferencesExceptionViewController: NSViewController {
     
     // 列表底部按钮
     @IBAction func addItemClick(_ sender: NSButton) {
+        let targetPosition = NSPoint(x: sender.frame.origin.x, y: sender.frame.origin.y + sender.frame.height + -25)
+        applicationSourceMenuControl.popUp(positioning: nil, at: targetPosition, in: sender.superview)
+    }
+    @IBAction func addItemFromInstalledClick(_ sender: NSMenuItem) {
         // 添加
         openFileSelectPanel()
         // 重新加载
         tableView.reloadData()
+    }
+    @IBAction func addItemFromManullyInputClick(_ sender: NSMenuItem) {
+        let exceptionInputViewController = Utils.instantiateControllerFromStoryboard(withIdentifier: PANEL_IDENTIFIER.exceptionInput) as NSViewController
+        presentAsSheet(exceptionInputViewController)
     }
     @IBAction func removeItemClick(_ sender: NSButton) {
         // 删除
@@ -75,11 +90,8 @@ class PreferencesExceptionViewController: NSViewController {
             result in
                 if result.rawValue == NSFileHandlingPanelOKButton && result == NSApplication.ModalResponse.OK {
                     // 根据路径获取 application 信息并保存到 ExceptionalApplications 列表中
-                    let applicationPath = openPanel.url!.path
-                    if let applicationBundleId = Bundle(url: openPanel.url!)?.bundleIdentifier {
-                        let application = ExceptionalApplication(path: applicationPath, bundleId: applicationBundleId)
-                        Options.shared.global.applications.append(application)
-                        self.tableView.reloadData()
+                    if let applicationPath = openPanel.url?.path, let applicationBundleId = Bundle(url: openPanel.url!)?.bundleIdentifier {
+                        self.appendApplicationWith(path: applicationPath, bundleId: applicationBundleId)
                     } else {
                         // 对于没有 bundleId 的应用可能是快捷方式, 给予提示
                     }
@@ -109,11 +121,21 @@ class PreferencesExceptionViewController: NSViewController {
     // 点击设置
     @objc func settingButtonClick(_ sender: NSButton!) {
         let row = sender.tag
-        // 打开界面
-        let statusItemPopover = PopoverManager.shared.get(withIdentifier: POPOVER_IDENTIFIER.statusItemPopoverViewController).contentViewController
-        if let statusItemPopoverViewController = statusItemPopover as? StatusItemPopoverViewController {
-            statusItemPopoverViewController.segueToSetting(with: Options.shared.global.applications.get(from: row))
-        }
+        let advancedViewController = Utils.instantiateControllerFromStoryboard(withIdentifier: PANEL_IDENTIFIER.advanced) as PreferencesAdvanceViewController
+        advancedViewController.currentTargetApplication = Options.shared.global.applications.get(from: row)
+        present(advancedViewController, asPopoverRelativeTo: sender.bounds, of: sender, preferredEdge: NSRectEdge.maxX, behavior: NSPopover.Behavior.transient)
+    }
+    
+    // 添加应用
+    func appendApplicationWith(path: String, bundleId: String) {
+        let application = ExceptionalApplication(path: path, bundleId: bundleId)
+        Options.shared.global.applications.append(application)
+        self.tableView.reloadData()
+    }
+    func appendApplicationWith(name: String, bundleId: String) {
+        let application = ExceptionalApplication(name: name, bundleId: bundleId)
+        Options.shared.global.applications.append(application)
+        self.tableView.reloadData()
     }
     
     // 同步界面与设置参数
@@ -164,13 +186,20 @@ extension PreferencesExceptionViewController: NSTableViewDelegate {
                     return cell
                 // 应用
                 case CellIdentifiers.applicationCell:
-                    cell.imageView?.image = NSWorkspace.shared.icon(forFile: application.path)
-                    if let applicationBundle = Bundle.init(url: URL.init(fileURLWithPath: application.path)) {
-                        if let name = applicationBundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String {
-                            cell.textField?.stringValue = name
-                        } else if let name = applicationBundle.object(forInfoDictionaryKey: "CFBundleName") as? String {
-                            cell.textField?.stringValue = name
+                    if let applicationPath = application.path {
+                        cell.imageView?.image = NSWorkspace.shared.icon(forFile: applicationPath)
+                        if let applicationBundle = Bundle.init(url: URL.init(fileURLWithPath: applicationPath)) {
+                            if let name = applicationBundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String {
+                                cell.textField?.stringValue = name
+                            } else if let name = applicationBundle.object(forInfoDictionaryKey: "CFBundleName") as? String {
+                                cell.textField?.stringValue = name
+                            }
                         }
+                    } else if let applicationName = application.name {
+                        cell.imageView?.image = #imageLiteral(resourceName: "SF.cube")
+                        cell.textField?.stringValue = applicationName
+                    } else {
+                        NSLog("Error on rendering application \(application)")
                     }
                     return cell
                 // 设定

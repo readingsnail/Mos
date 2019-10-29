@@ -36,7 +36,6 @@ struct WINDOW_IDENTIFIER {
     static let welcomeWindowController = "welcomeWindowController"
     static let monitorWindowController = "monitorWindowController"
     static let preferencesWindowController = "preferencesWindowController"
-    static let hideStatusItemWindowController = "hideStatusItemWindowController"
 }
 
 // 视图
@@ -45,6 +44,7 @@ struct PANEL_IDENTIFIER {
     static let advanced = "advanced"
     static let advancedWithNavigation = "advancedWithNavigation"
     static let exception = "exception"
+    static let exceptionInput = "exceptionInput"
     static let list = [
         general,
         advanced,
@@ -91,10 +91,13 @@ class OPTIONS_SCROLL_DEFAULT: Codable {
         didSet {Options.shared.saveOptions()}
     }
     // 高级
-    var toggle = 0 {
+    var dash:Int? = 0 {
         didSet {Options.shared.saveOptions()}
     }
-    var block = 0 {
+    var toggle:Int? = 0 {
+        didSet {Options.shared.saveOptions()}
+    }
+    var block:Int? = 0 {
         didSet {Options.shared.saveOptions()}
     }
     var step = 35.0 {

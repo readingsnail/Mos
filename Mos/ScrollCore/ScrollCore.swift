@@ -21,6 +21,8 @@ class ScrollCore {
     var scrollBuffer = ( y: 0.0, x: 0.0 )  // 滚动缓冲距离
     var scrollDelta  = ( y: 0.0, x: 0.0 )  // 滚动方向记录
     // 热键数据
+    var dashScroll = false
+    var dashAmplification = 1.0
     var toggleScroll = false
     var blockSmooth = false
     // 插值数据
@@ -56,8 +58,8 @@ class ScrollCore {
             // 获取列表中应用程序的列外设置信息
             ScrollCore.shared.exceptionalApplication = ScrollUtils.shared.applicationInExceptionalApplications(bundleId: targetBID)
             // 翻转/平滑
-            let enableReverse = ScrollUtils.shared.isEnableReverseOn(application: ScrollCore.shared.exceptionalApplication)
-            let enableSmooth = ScrollUtils.shared.isEnableSmoothOn(application: ScrollCore.shared.exceptionalApplication)
+            let enableReverse = ScrollUtils.shared.isEnableReverseOn(application: ScrollCore.shared.exceptionalApplication, targetBundleId: targetBID)
+            let enableSmooth = ScrollUtils.shared.isEnableSmoothOn(application: ScrollCore.shared.exceptionalApplication, targetBundleId: targetBID)
             // 滚动参数
             ScrollCore.shared.smoothStep = ScrollUtils.shared.optionsStepOn(application: ScrollCore.shared.exceptionalApplication)
             ScrollCore.shared.smoothSpeed = ScrollUtils.shared.optionsSpeedOn(application: ScrollCore.shared.exceptionalApplication)
@@ -98,7 +100,12 @@ class ScrollCore {
             }
             // 触发滚动事件推送
             if enableSmooth {
-                ScrollCore.shared.updateScrollBuffer(y: scrollEvent.Y.usableValue, x: scrollEvent.X.usableValue, s: ScrollCore.shared.smoothSpeed)
+                ScrollCore.shared.updateScrollBuffer(
+                    y: scrollEvent.Y.usableValue,
+                    x: scrollEvent.X.usableValue,
+                    s: ScrollCore.shared.smoothSpeed,
+                    a: ScrollCore.shared.dashAmplification
+                )
                 ScrollCore.shared.enableScrollEventPoster()
             }
         }
@@ -112,12 +119,27 @@ class ScrollCore {
     
     // 热键事件处理
     let hotkeyEventCallBack: CGEventTapCallBack = { (proxy, type, event, refcon) in
-        let toggleKey = ScrollUtils.shared.optionsToggleOn(application: ScrollCore.shared.exceptionalApplication)
-        let disableKey = ScrollUtils.shared.optionsBlockOn(application: ScrollCore.shared.exceptionalApplication)
+        // 获取目标应用程序
+        let targetBID = ScrollUtils.shared.getBundleIdFromMouseLocation(and: event)
+        guard let targetAppliaction = ScrollUtils.shared.applicationInExceptionalApplications(bundleId: targetBID) else {
+            ScrollCore.shared.dashScroll = false
+            ScrollCore.shared.dashAmplification = 1.0
+            ScrollCore.shared.toggleScroll = false
+            ScrollCore.shared.blockSmooth = false
+            return nil
+        }
+        // 读取快捷键
+        let dashKey = ScrollUtils.shared.optionsDashOn(application: targetAppliaction)
+        let toggleKey = ScrollUtils.shared.optionsToggleOn(application: targetAppliaction)
+        let disableKey = ScrollUtils.shared.optionsBlockOn(application: targetAppliaction)
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-        // 判断转换键
+        // 判断快捷键
         switch keyCode {
             case MODIFIER_KEY.controlLeft, MODIFIER_KEY.controlRight:
+                if (dashKey == MODIFIER_KEY.controlLeft || dashKey == MODIFIER_KEY.controlRight) {
+                    ScrollCore.shared.dashScroll = Utils.isControlDown(event)
+                    ScrollCore.shared.dashAmplification = ScrollCore.shared.dashScroll ? 5.0 : 1.0
+                }
                 if (toggleKey == MODIFIER_KEY.controlLeft || toggleKey == MODIFIER_KEY.controlRight) {
                     ScrollCore.shared.toggleScroll = Utils.isControlDown(event)
                 }
@@ -126,6 +148,10 @@ class ScrollCore {
                     ScrollCore.shared.scrollBuffer = ScrollCore.shared.scrollCurr
                 }
             case MODIFIER_KEY.optionLeft, MODIFIER_KEY.optionRight:
+                if (dashKey == MODIFIER_KEY.optionLeft || dashKey == MODIFIER_KEY.optionRight) {
+                    ScrollCore.shared.dashScroll = Utils.isOptionDown(event)
+                    ScrollCore.shared.dashAmplification = ScrollCore.shared.dashScroll ? 5.0 : 1.0
+                }
                 if (toggleKey == MODIFIER_KEY.optionLeft || toggleKey == MODIFIER_KEY.optionRight) {
                     ScrollCore.shared.toggleScroll = Utils.isOptionDown(event)
                 }
@@ -134,6 +160,10 @@ class ScrollCore {
                     ScrollCore.shared.scrollBuffer = ScrollCore.shared.scrollCurr
                 }
             case MODIFIER_KEY.commandLeft, MODIFIER_KEY.commandRight:
+                if (dashKey == MODIFIER_KEY.commandLeft || dashKey == MODIFIER_KEY.commandRight) {
+                    ScrollCore.shared.dashScroll = Utils.isCommandDown(event)
+                    ScrollCore.shared.dashAmplification = ScrollCore.shared.dashScroll ? 5.0 : 1.0
+                }
                 if (toggleKey == MODIFIER_KEY.commandLeft || toggleKey == MODIFIER_KEY.commandRight) {
                     ScrollCore.shared.toggleScroll = Utils.isCommandDown(event)
                 }
@@ -142,6 +172,10 @@ class ScrollCore {
                     ScrollCore.shared.scrollBuffer = ScrollCore.shared.scrollCurr
                 }
             case MODIFIER_KEY.shiftLeft, MODIFIER_KEY.shiftRight:
+                if (dashKey == MODIFIER_KEY.shiftLeft || dashKey == MODIFIER_KEY.shiftRight) {
+                    ScrollCore.shared.dashScroll = Utils.isShiftDown(event)
+                    ScrollCore.shared.dashAmplification = ScrollCore.shared.dashScroll ? 5.0 : 1.0
+                }
                 if (toggleKey == MODIFIER_KEY.shiftLeft || toggleKey == MODIFIER_KEY.shiftRight) {
                     ScrollCore.shared.toggleScroll = Utils.isShiftDown(event)
                 }
@@ -149,7 +183,7 @@ class ScrollCore {
                     ScrollCore.shared.blockSmooth = Utils.isShiftDown(event)
                     ScrollCore.shared.scrollBuffer = ScrollCore.shared.scrollCurr
                 }
-        default: break
+            default: break
         }
         return nil
     }
@@ -216,19 +250,19 @@ class ScrollCore {
     }
         
     // 鼠标数据控制
-    func updateScrollBuffer(y: Double, x: Double, s: Double) {
+    func updateScrollBuffer(y: Double, x: Double, s: Double, a: Double = 1) {
         // 更新 Y 轴数据
         if y*scrollDelta.y > 0 {
-            scrollBuffer.y += s * y
+            scrollBuffer.y += y * s * a
         } else {
-            scrollBuffer.y = s * y
+            scrollBuffer.y = y * s * a
             scrollCurr.y = 0.0
         }
         // 更新 X 轴数据
         if x*scrollDelta.x > 0 {
-            scrollBuffer.x += s * x
+            scrollBuffer.x += x * s * a
         } else {
-            scrollBuffer.x = s * x
+            scrollBuffer.x = x * s * a
             scrollCurr.x = 0.0
         }
         scrollDelta = ( y: y, x: x )

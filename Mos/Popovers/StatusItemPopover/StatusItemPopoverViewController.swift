@@ -95,7 +95,7 @@ extension StatusItemPopoverViewController: NSPopoverDelegate {
     // 切换到设置
     func segueToSetting(with application: ExceptionalApplication) {
         // 设置当前应用
-        PreferencesAdvanceViewController.sharedTargetApplication = application
+//        PreferencesAdvanceViewController.sharedTargetApplication = application
         // 显示设置界面
         pushContentView(with: PANEL_IDENTIFIER.advancedWithNavigation)
     }

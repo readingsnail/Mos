@@ -11,9 +11,11 @@ import Cocoa
 class ExceptionalApplication: Codable, Equatable {
     
     // 基础
-    var path: String
+    var name: String?
+    var path: String?
     var bundleId: String
-    var followGlobal = true // 不包含 smooth 及 reverse
+    // 开关 (smooth 及 reverse 不走这个)
+    var followGlobal = false
     // 滚动
     var scroll = OPTIONS_SCROLL_DEFAULT()
     
@@ -22,13 +24,20 @@ class ExceptionalApplication: Codable, Equatable {
         self.path = path
         self.bundleId = bundleId
     }
+    init(name: String, bundleId: String) {
+        // 基础
+        self.name = name
+        self.bundleId = bundleId
+    }
     
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         // 基础
-        self.path = try container.decodeIfPresent(String.self, forKey: .path) ?? ""
+        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? nil
+        self.path = try container.decodeIfPresent(String.self, forKey: .path) ?? nil
         self.bundleId = try container.decodeIfPresent(String.self, forKey: .bundleId) ?? ""
-        self.followGlobal = try container.decodeIfPresent(Bool.self, forKey: .followGlobal) ?? true
+        // 开关
+        self.followGlobal = try container.decodeIfPresent(Bool.self, forKey: .followGlobal) ?? false
         // 滚动
         self.scroll = try container.decodeIfPresent(OPTIONS_SCROLL_DEFAULT.self, forKey: .scroll) ?? OPTIONS_SCROLL_DEFAULT()
     }

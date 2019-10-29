@@ -7,7 +7,7 @@
 */
 
 // Mointor
-"TUE-3v-CaJ.title" = "          呈現該視窗的資訊會顯著影響捲動性能, 請僅在必要時開啟";
+"TUE-3v-CaJ.title" = "呈現該視窗的資訊會顯著影響捲動性能, 請僅在必要時開啟";
 
 // PreferencesWindow
 "cvF-hf-KVW.title" = "偏好設定";
@@ -25,6 +25,9 @@
 "bB5-2R-9Da.title" = "再次执行 Mos 以顯示狀態欄圖示";
 // Advanced
 "iW5-CD-5OC.title" = "高級";
+"hOO-M8-I1z.title" = "加速鍵:";
+"Vhz-Rn-lcU.title" = "停用";
+"Z59-tN-QjE.title" = "加快在長頁面時的捲動速度";
 "bQw-5w-Yv0.title" = "轉換鍵:";
 "cTe-aL-0GQ.title" = "停用";
 "KnM-kA-wn5.title" = "暫時性將垂直方向捲動轉變為水平方向";
@@ -49,6 +52,12 @@
 "v26-RK-BtL.title" = "啟用白名單模式后, Mos 僅會對包含在例外列表中的應用程式啟用, 其他的則不受任何影響";
 "ThS-Rm-st2.title" = "沒有任何應用程式遭到不公對待";
 "jaq-Cb-dKM.title" = "你可以通過點擊下方的 \"+\" 來添加一個應用程式以設置其捲動行為";
+"dhF-95-kUJ.title" = "從已安裝的應用程式中選擇";
+"Vp7-0n-aRd.title" = "手動輸入應用程式信息";
+"kUr-cl-KRm.title" = "應用程式名稱:";
+"Ck5-if-9RS.title" = "包名稱:";
+"Mdw-fZ-Nyy.title" = "取消";
+"2v4-AC-WG5.title" = "確認";
 // Updates
 "EWu-DP-7Gj.title" = "更新";
 "vdI-K4-SBh.title" = "檢查更新:";
@@ -66,13 +75,6 @@
 "ZJY-Yg-Qev.title" = "貢獻者們";
 "Lhz-x5-X0I.title" = "譯者";
 "GWm-aK-UoV.title" = "貢獻者名目";
-
-// HideStatusItemWindow
-"WNd-iN-aAG.title" = "隱藏位於狀態欄的圖示";
-"hDs-Yh-11x.title" = "不過, 就算 Mos 的狀態欄圖標被隱藏, 它依然會在後台為你不斷為您平滑滑鼠的捲動";
-"zAs-CP-Wpw.title" = "一旦你隱藏了狀態欄圖示, 偏好設置便無法打開, 如果你想再次顯示被隱藏的圖示, 請使用活動監視器關閉 Mos, 再重新開啟, 并點擊屏幕中通知的 '顯示圖示' 按鈕";
-"ueB-gF-VZ8.title" = "取消";
-"hhO-Gh-ldE.title" = "我要隱藏狀態欄圖示";
 
 // WelcomeWindow
 "SLb-UR-lz1.title" = "歡迎使用 Mos";
