@@ -15,6 +15,33 @@ class IntroductionViewController: NSViewController {
     // 帮助弹窗
     var isViewFirstActive = true
     var isHelpPopoverShowed = false
+    // 是否从偏好设置手动打开的标识
+    var isManuallyOpened = false
+    
+    // 设置手动打开标识的方法
+    func setManuallyOpened(_ manually: Bool) {
+        isManuallyOpened = manually
+        // 如果是手动打开，停止现有的定时器
+        if manually {
+            accessibilityPermissionsCheckerTimer?.invalidate()
+            accessibilityPermissionsCheckerTimer = nil
+        }
+        // 更新按钮状态
+        updateButtonState()
+    }
+    
+    // 更新按钮状态
+    func updateButtonState() {
+        if AXIsProcessTrusted() {
+            // 如果有权限
+            authButton.title = NSLocalizedString("Authorized", comment: "")
+            authButton.isEnabled = false
+        } else {
+            // 如果没权限
+            authButton.title = NSLocalizedString("Auth", comment: "")
+            authButton.isEnabled = true
+        }
+    }
     @IBOutlet weak var helpButton: NSButton!
     @IBOutlet weak var helpDragAppArrow: NSImageView!
     @IBOutlet weak var helpDragAppSparkle: NSImageView!
@@ -23,16 +50,18 @@ class IntroductionViewController: NSViewController {
     @IBOutlet weak var authButton: NSButton!
     
     override func viewDidLoad() {
-        // 初始化文字
-        authButton.title = i18n.allowToAccess
-        // 启动定时器检测权限, 当拥有授权时启动滚动处理
-        accessibilityPermissionsCheckerTimer = Timer.scheduledTimer(
-            timeInterval: 1.0,
-            target: self,
-            selector: #selector(accessibilityPermissionsChecker(_:)),
-            userInfo: nil,
-            repeats: true
-        )
+        // 初始化按钮状态
+        updateButtonState()
+        // 只有在非手动打开的情况下才启动权限检测定时器
+        if !isManuallyOpened {
+            accessibilityPermissionsCheckerTimer = Timer.scheduledTimer(
+                timeInterval: 1.0,
+                target: self,
+                selector: #selector(accessibilityPermissionsChecker(_:)),
+                userInfo: nil,
+                repeats: true
+            )
+        }
         // 检查获得焦点
         NotificationCenter.default.addObserver(
             self,
@@ -81,12 +110,16 @@ extension IntroductionViewController {
 extension IntroductionViewController {
     // 检查是否有访问 accessibility 权限, 并设置对应按钮
     @objc func accessibilityPermissionsChecker(_ timer: Timer) {
+        // 更新按钮状态
+        updateButtonState()
         // 如果有权限
         if AXIsProcessTrusted() {
             // 关闭检测
             accessibilityPermissionsCheckerTimer?.invalidate()
-            // 关闭窗口
-            view.window?.close()
+            // 只有在非手动打开的情况下才关闭窗口
+            if !isManuallyOpened {
+                view.window?.close()
+            }
         }
     }
     // 请求获取权限
