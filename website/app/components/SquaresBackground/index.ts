@@ -1,1 +1,0 @@
-export { Squares } from './SquaresBackground';

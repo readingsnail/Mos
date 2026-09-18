@@ -3,21 +3,149 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg0: #000000;
+  --bg1: #090909;
+  --fg0: rgba(255, 255, 255, 0.92);
+  --fg1: rgba(255, 255, 255, 0.72);
+  --fg2: rgba(255, 255, 255, 0.52);
+  --border: rgba(255, 255, 255, 0.12);
+
+  --accent: #ffffff;
+  --accent2: #a1a1aa;
+  --accent3: #52525b;
+
+  --radius-xl: 26px;
+  --radius-card: 32px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --noise-opacity: 0.065;
+
+  /* Unified CJK fallback so 中日韩 text renders consistently across every font
+     slot (display/body/mono/hand) instead of each latin font's own system
+     fallback. Latin is always caught by the primary font first, so this only
+     affects CJK glyphs. */
+  --font-cjk: "PingFang SC", "PingFang TC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Microsoft JhengHei", "Malgun Gothic", "Noto Sans CJK SC", "Noto Sans CJK TC",
+    "Noto Sans CJK JP", "Noto Sans CJK KR", "Noto Sans SC";
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* The handwritten wall face (Caveat) has a very low glyph-fill: its letters sit
+   small inside the em box. CJK has no glyphs in Caveat, so 中文 falls back to
+   PingFang/YaHei — which fill the em box almost completely — and renders visibly
+   larger and heavier than the latin handwriting at the same font-size. Shrink
+   ONLY the CJK glyphs (matched by unicode-range) via size-adjust so they sit at
+   the same optical size as the latin script. Latin never reaches this face —
+   Caveat (var(--font-hand)) catches it first in the .font-hand stack. Systems
+   without any listed face fall through to var(--font-cjk) at full size (graceful
+   degrade); browsers without size-adjust (Safari <17) likewise just see no
+   shrink. */
+@font-face {
+  font-family: "HandCJKAdjust";
+  src: local("PingFang SC"), local("PingFang TC"), local("Hiragino Sans GB"),
+    local("Microsoft YaHei"), local("Microsoft JhengHei"),
+    local("Noto Sans CJK SC"), local("Noto Sans SC");
+  unicode-range: U+3000-303F, U+3040-30FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF,
+    U+FF00-FFEF;
+  size-adjust: 75%;
+}
+
+html {
+  /* Reserve the scrollbar's space so locking page scroll (e.g. opening a modal)
+     never hides the scrollbar and reflows the layout wider. No-op for macOS
+     overlay scrollbars; fixes the width jump with classic scrollbars (Windows). */
+  scrollbar-gutter: stable;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--fg0);
+  background: #000;
+  font-family:
+    var(--font-body),
+    var(--font-cjk),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    "Apple Color Emoji",
+    "Segoe UI Emoji";
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.site-brand-title {
+  font-family:
+    var(--font-display, var(--font-body, ui-sans-serif)),
+    var(--font-cjk),
+    var(--font-body),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Helvetica,
+    Arial;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.98);
+}
+
+/* A subtle, always-on grain over the black page background. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--noise-opacity);
+  mix-blend-mode: overlay;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05) 0px,
+      rgba(255, 255, 255, 0.05) 1px,
+      rgba(0, 0, 0, 0.00) 2px,
+      rgba(0, 0, 0, 0.00) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.035) 0px,
+      rgba(255, 255, 255, 0.035) 1px,
+      rgba(0, 0, 0, 0.00) 2px,
+      rgba(0, 0, 0, 0.00) 5px
+    );
+  transform: translateZ(0);
+}
+
+/* Scrollbar (WebKit) */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border: 2px solid rgba(0, 0, 0, 0);
+  background-clip: content-box;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+  border: 2px solid rgba(0, 0, 0, 0);
+  background-clip: content-box;
 }
 
 @keyframes modal-appear {
@@ -28,5 +156,319 @@ body {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* Subtle "lub-dub" heartbeat for the support (cat) icon. */
+@keyframes meow-heartbeat {
+  0% { transform: scale(1) translateY(0); }
+  14% { transform: scale(1.24) translateY(-1.5px); }
+  28% { transform: scale(1) translateY(0); }
+  42% { transform: scale(1.14) translateY(-1px); }
+  56% { transform: scale(1) translateY(0); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+@keyframes stroke-in {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0.2;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes homebrew-pulse {
+  0% {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+      0 0 0 0 rgba(255, 255, 255, 0),
+      0 0 0 rgba(0, 0, 0, 0);
+  }
+  28% {
+    border-color: rgba(255, 255, 255, 0.26);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.16),
+      0 0 0 10px rgba(255, 255, 255, 0.055),
+      0 0 64px rgba(255, 255, 255, 0.08);
+  }
+  100% {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+      0 0 0 0 rgba(255, 255, 255, 0),
+      0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+@keyframes homebrew-sheen {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family:
+      var(--font-display, var(--font-body, ui-sans-serif)),
+      var(--font-cjk),
+      var(--font-body),
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Helvetica,
+      Arial;
+  }
+
+  .font-mono {
+    font-family:
+      var(--font-mono),
+      var(--font-cjk),
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Monaco,
+      Consolas,
+      "Liberation Mono",
+      "Courier New",
+      monospace;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .font-hand {
+    font-family: var(--font-hand), "HandCJKAdjust", var(--font-cjk), "Bradley Hand", "Comic Sans MS", cursive;
+  }
+
+  /* Wall control entrance: each floating control slides/fades in from its own edge.
+     Done in CSS (not framer initial/animate) so it plays reliably under React
+     StrictMode's double-mount in dev, identically to production. */
+  @keyframes wall-enter-up {
+    from { opacity: 0; transform: translateY(78px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes wall-enter-down {
+    from { opacity: 0; transform: translateY(-48px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes wall-enter-tl {
+    from { opacity: 0; transform: translate(-54px, -54px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes wall-enter-tr {
+    from { opacity: 0; transform: translate(54px, -54px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes wall-enter-bl {
+    from { opacity: 0; transform: translate(-54px, 54px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes wall-enter-br {
+    from { opacity: 0; transform: translate(54px, 54px); }
+    to { opacity: 1; transform: none; }
+  }
+  /* The 0.3s delay holds each control hidden (opacity:0, via `both`) for a beat after
+     mount, so the starfield begins lighting up first and the chrome slides in after. */
+  .wall-enter-up { animation: wall-enter-up 2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both; }
+  .wall-enter-down { animation: wall-enter-down 2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both; }
+  .wall-enter-tl { animation: wall-enter-tl 2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both; }
+  .wall-enter-tr { animation: wall-enter-tr 2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both; }
+  .wall-enter-bl { animation: wall-enter-bl 2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both; }
+  .wall-enter-br { animation: wall-enter-br 2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both; }
+
+  /* Starfield ignition: the canvas sits on the black viewport and fades up from 0, so
+     the sky reads as pure black at first frame and the stars slowly light up rather
+     than popping in. Opacity-only (no movement) so it's reduced-motion friendly. */
+  @keyframes wall-stars-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .wall-stars-in { animation: wall-stars-in 2.4s ease-out both; }
+
+  /* Dotted backdrop for the wall canvas. Screen-fixed so the rising wave reads the
+     same at any zoom; the note grid sits in the transformed world layer above it. */
+  .wall-grid {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1.3px, transparent 1.3px);
+    background-size: 30px 30px;
+    background-position: center;
+  }
+  /* Upward light wave: a brighter copy of the dots revealed by a band mask that
+     sweeps bottom → top, so the dots glow in a rising wave. */
+  .wall-grid::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.5) 1.3px, transparent 1.3px);
+    background-size: 30px 30px;
+    background-position: center;
+    -webkit-mask-image: linear-gradient(to top, transparent, #000 50%, transparent);
+    mask-image: linear-gradient(to top, transparent, #000 50%, transparent);
+    -webkit-mask-size: 100% 55%;
+    mask-size: 100% 55%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    animation: wall-grid-wave 5s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes wall-grid-wave {
+    from {
+      -webkit-mask-position: 0 175%;
+      mask-position: 0 175%;
+    }
+    to {
+      -webkit-mask-position: 0 -75%;
+      mask-position: 0 -75%;
+    }
+  }
+
+  .glass {
+    background: rgba(8, 9, 14, 0.60);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.06) inset,
+      0 1px 0 rgba(255,255,255,0.12) inset,
+      0 32px 120px rgba(0,0,0,0.8);
+  }
+
+  .ring-accent {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 24px 60px rgba(0, 0, 0, 0.55);
+  }
+
+  .shadow-elevated {
+    box-shadow:
+      0 32px 120px rgba(0, 0, 0, 0.80),
+      0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  }
+
+  .hairline {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  }
+
+  .homebrew-highlight {
+    position: relative;
+    isolation: isolate;
+    will-change: box-shadow;
+    animation: homebrew-pulse 1200ms var(--ease-out) both;
+  }
+
+  .homebrew-highlight::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      radial-gradient(900px 260px at 28% 0%, rgba(255, 255, 255, 0.16), transparent 60%),
+      radial-gradient(720px 240px at 82% 10%, rgba(255, 255, 255, 0.10), transparent 62%);
+    mix-blend-mode: screen;
+    opacity: 0;
+    animation: homebrew-sheen 1200ms var(--ease-out) both;
+  }
+
+  .range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    outline: none;
+  }
+
+  .range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(0, 0, 0, 0.28);
+    box-shadow:
+      0 0 0 6px rgba(255, 255, 255, 0.08),
+      0 14px 40px rgba(0, 0, 0, 0.55);
+    cursor: pointer;
+  }
+
+  .range::-webkit-slider-thumb:active {
+    transform: scale(0.96);
+  }
+
+  .range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(0, 0, 0, 0.28);
+    box-shadow:
+      0 0 0 6px rgba(255, 255, 255, 0.08),
+      0 14px 40px rgba(0, 0, 0, 0.55);
+    cursor: pointer;
+  }
+
+  .range::-moz-range-track {
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  /* Gradient text with safe fallback (avoid transparent text if background-clip isn't supported). */
+  .text-flow {
+    color: rgba(255, 255, 255, 0.96);
+  }
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  @layer utilities {
+    .text-flow {
+      background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(255, 255, 255, 0.64) 38%,
+        rgba(255, 255, 255, 0.98) 86%
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homebrew-highlight {
+    animation: none;
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.14) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 0 32px rgba(255, 255, 255, 0.06);
+  }
+  .homebrew-highlight::after {
+    animation: none;
+    opacity: 0;
+  }
+  /* Reduced motion: skip the fade and show the stars at full brightness immediately. */
+  .wall-stars-in {
+    animation: none;
   }
 }

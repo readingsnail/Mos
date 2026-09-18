@@ -13,6 +13,7 @@ class ScrollUtils {
     // 单例
     static let shared = ScrollUtils()
     init() { NSLog("Module initialized: ScrollUtils") }
+    private let syntheticSmoothEventMarker: Int64 = 0x4D4F53534D4F4F54
     
     // 判断事件目标是否变化
     var previousScrollTargetProcessID = 0.0 // 用于在鼠标移动到不同窗口时停止滚动
@@ -25,19 +26,12 @@ class ScrollUtils {
         return previousScrollTargetProcessID != currentScrollTargetProcessID && previousScrollTargetProcessID != 0.0
     }
     
-    // 发送事件
-    func postScrollEvent(_ proxy: CGEventTapProxy, _ event: CGEvent, _ value: ( y: Double, x: Double )) {
-        if let eventClone = event.copy() {
-            eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: value.y)
-            eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: value.x)
-            eventClone.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: 0.0)
-            eventClone.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: 0.0)
-            eventClone.setDoubleValueField(.scrollWheelEventIsContinuous, value: 1.0)
-            // EventTapProxy 标识了 EventTapCallback 在事件流中接收到事件的特定位置, 其粒度小于 tap 本身
-            // 使用 tapPostEvent 可以将自定义的事件发布到 proxy 标识的位置, 避免被 EventTapCallback 本身重复接收或处理
-            // 新发布的事件将早于 EventTapCallback 所处理的事件进入系统, 也如同 EventTapCallback 所处理的事件, 会被所有后续的 EventTap 接收
-            eventClone.tapPostEvent(proxy)
-        }
+    func markSyntheticSmoothEvent(_ event: CGEvent) {
+        event.setIntegerValueField(.eventSourceUserData, value: syntheticSmoothEventMarker)
+    }
+
+    func isSyntheticSmoothEvent(_ event: CGEvent) -> Bool {
+        return event.getIntegerValueField(.eventSourceUserData) == syntheticSmoothEventMarker
     }
     
     // 从 CGEvent 中携带的 PID 获取应用信息
@@ -81,7 +75,11 @@ class ScrollUtils {
         guard let validRunningApplication = runningApplication else {
             return false
         }
-        // 10.15 以上直接判断是否为 Dock
+        // macOS 26+ LaunchPad 已无分页功能, 平滑滚动是预期行为, 无需特殊处理
+        if #available(macOS 26.0, *) {
+            return false
+        }
+        // 10.15 - 26 以下判断是否为 Dock (LaunchPad 依附于 Dock 进程)
         // FIXME: 当 Dock 的目录设置为 "叠放" 时, 应用对 Dock 的目录预览无法平滑, 且发送平滑后的滚动事件无法被识别, 需要找别的方式
         if #available(OSX 10.15, *) {
             if validRunningApplication.executableURL?.path == "/System/Library/CoreServices/Dock.app/Contents/MacOS/Dock" {
@@ -119,43 +117,69 @@ class ScrollUtils {
         return nil
     }
 
-    // 滚动参数: 热键
-    // 使用 0xFFFF 作为未配置的标识, 避免与 keyCode=0 (A键) 或其他功能键冲突
-    func optionsDashKey(application: Application?) -> (CGKeyCode, CGEventFlags) {
-        var code: CGKeyCode
-        if let targetApplication = application {
-            let keyValue = targetApplication.inherit ? Options.shared.scroll.dash : targetApplication.scroll.dash
-            // 0 或 nil 都视为未配置,返回不可能的 keyCode
-            code = (keyValue == nil || keyValue == 0) ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
-        } else {
-            let keyValue = Options.shared.scroll.dash
-            code = (keyValue == nil || keyValue == 0) ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+    // MARK: - 远程桌面事件检测
+    // 远程桌面事件检测缓存
+    private var lastSourcePID: pid_t = 0
+    private var lastSourceIsRemoteControl: Bool = false
+
+    /// 检测事件来源是否为远程桌面应用
+    func isFromRemoteApplication(_ event: CGEvent) -> Bool {
+        let sourcePID = pid_t(event.getIntegerValueField(.eventSourceUnixProcessID))
+        if sourcePID == 0 { return false }
+
+        if sourcePID != lastSourcePID {
+            lastSourcePID = sourcePID
+            lastSourceIsRemoteControl = false
+
+            if let app = NSRunningApplication(processIdentifier: sourcePID) {
+                // 检查可执行文件路径（系统守护进程）
+                if let path = app.executableURL?.path {
+                    for keyword in REMOTE_CONTROL_APPLICATION.executableKeywords {
+                        if path.contains(keyword) {
+                            lastSourceIsRemoteControl = true
+                            break
+                        }
+                    }
+                }
+                // 检查 Bundle Identifier（第三方应用）
+                if !lastSourceIsRemoteControl, let bundleId = app.bundleIdentifier {
+                    lastSourceIsRemoteControl = REMOTE_CONTROL_APPLICATION.bundleIdentifiers.contains(bundleId)
+                }
+            }
         }
-        let mask = KeyCode.getKeyMask(code)
-        return (code, mask)
+        return lastSourceIsRemoteControl
     }
-    func optionsToggleKey(application: Application?) -> (CGKeyCode, CGEventFlags) {
-        var code: CGKeyCode
-        if let targetApplication = application {
-            let keyValue = targetApplication.inherit ? Options.shared.scroll.toggle : targetApplication.scroll.toggle
-            code = (keyValue == nil || keyValue == 0) ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
-        } else {
-            let keyValue = Options.shared.scroll.toggle
-            code = (keyValue == nil || keyValue == 0) ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
-        }
-        let mask = KeyCode.getKeyMask(code)
-        return (code, mask)
+
+    /// 检测事件是否来自已被平滑的远程源
+    /// 返回 true 表示应跳过平滑处理
+    func isRemoteSmoothedEvent(_ event: CGEvent) -> Bool {
+        if !isFromRemoteApplication(event) { return false }
+        // 检查 isContinuous 字段判断是否为连续的
+        let isContinuous = event.getDoubleValueField(.scrollWheelEventIsContinuous)
+        return isContinuous == 1.0  // 1.0 表示主控端已平滑
     }
-    func optionsBlockKey(application: Application?) -> (CGKeyCode, CGEventFlags) {
-        var code: CGKeyCode
+
+    // MARK: - 滚动参数: 热键
+    // 返回 ScrollHotkey? 供 ScrollCore 使用
+    func optionsDashKey(application: Application?) -> ScrollHotkey? {
         if let targetApplication = application {
-            let keyValue = targetApplication.inherit ? Options.shared.scroll.block : targetApplication.scroll.block
-            code = (keyValue == nil || keyValue == 0) ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+            return targetApplication.inherit ? Options.shared.scroll.dash : targetApplication.scroll.dash
         } else {
-            let keyValue = Options.shared.scroll.block
-            code = (keyValue == nil || keyValue == 0) ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+            return Options.shared.scroll.dash
         }
-        let mask = KeyCode.getKeyMask(code)
-        return (code, mask)
+    }
+    func optionsToggleKey(application: Application?) -> ScrollHotkey? {
+        if let targetApplication = application {
+            return targetApplication.inherit ? Options.shared.scroll.toggle : targetApplication.scroll.toggle
+        } else {
+            return Options.shared.scroll.toggle
+        }
+    }
+    func optionsBlockKey(application: Application?) -> ScrollHotkey? {
+        if let targetApplication = application {
+            return targetApplication.inherit ? Options.shared.scroll.block : targetApplication.scroll.block
+        } else {
+            return Options.shared.scroll.block
+        }
     }
 }

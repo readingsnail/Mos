@@ -1,0 +1,29 @@
+{
+  "configurations" : [
+    {
+      "id" : "29A03558-E39E-457B-B97C-8497DEE3152B",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Mos.xcodeproj",
+      "identifier" : "22142D9F1E25344E00E4BFBF",
+      "name" : "Mos"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Mos.xcodeproj",
+        "identifier" : "62CD1674CBD9855CE2042C81",
+        "name" : "MosTests"
+      }
+    }
+  ],
+  "version" : 1
+}

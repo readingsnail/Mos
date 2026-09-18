@@ -78,7 +78,11 @@ extension StatusItemManager {
             // Reset
             menu.removeAllItems()
             // Monitor
-            Utils.addMenuItem(to: menu, title: NSLocalizedString("Event Monitor", comment: ""), icon: #imageLiteral(resourceName: "SF.square.stack.3d.down.right"), action: #selector(monitorClick))
+            Utils.addMenuItem(to: menu, title: "Debug: Event Monitor", action: #selector(monitorClick))
+            // HID++ Debug
+            Utils.addMenuItem(to: menu, title: "Debug: HID++", action: #selector(hidDebugClick))
+            // Toast Debug
+            Utils.addMenuItem(to: menu, title: "Debug: Toast", action: #selector(toastDebugClick))
             // Preferences
             Utils.addMenuItem(to: menu, title: NSLocalizedString("Preferences", comment: ""), icon: #imageLiteral(resourceName: "SF.gauge"), action: #selector(preferencesClick))
             // Quit
@@ -98,6 +102,12 @@ extension StatusItemManager {
     }
     @objc func monitorClick() {
         WindowManager.shared.showWindow(withIdentifier: WINDOW_IDENTIFIER.monitorWindowController)
+    }
+    @objc func hidDebugClick() {
+        LogiCenter.shared.showDebugPanel()
+    }
+    @objc func toastDebugClick() {
+        Toast.showTestPanel()
     }
     @objc func preferencesClick() {
         WindowManager.shared.showWindow(withIdentifier: WINDOW_IDENTIFIER.preferencesWindowController)

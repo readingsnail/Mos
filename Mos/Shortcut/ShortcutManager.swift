@@ -41,9 +41,10 @@ class ShortcutManager {
     /// - Parameter menu: 目标菜单对象
     /// - Parameter target: 菜单项点击事件的目标对象
     /// - Parameter action: 菜单项点击事件的选择器
-    static func buildShortcutMenu(into menu: NSMenu, target: AnyObject, action: Selector) {
+    static func buildShortcutMenu(into menu: NSMenu, target: AnyObject, action: Selector, showLogiActions: Bool = false) {
         // 清空现有菜单项
         menu.removeAllItems()
+        menu.autoenablesItems = false
 
         // 添加占位符 (用于显示当前选中的快捷键)
         // NSPopUpButton 不会自动显示子菜单项标题,必须用占位符模式
@@ -81,6 +82,7 @@ class ShortcutManager {
 
             // 创建子菜单
             let subMenu = NSMenu(title: categoryName)
+            subMenu.autoenablesItems = false
 
             // 添加该分类下的所有快捷键到子菜单(过滤掉当前系统不支持的,保持原始顺序)
             let availableShortcuts = shortcuts.filter { $0.isAvailable }
@@ -114,7 +116,133 @@ class ShortcutManager {
             // 将分类菜单项添加到主菜单
             menu.addItem(categoryMenuItem)
         }
+
+        // 修饰键分类 (始终显示)
+        addCategoryToMenu(
+            menu: menu,
+            category: SystemShortcut.modifierKeysCategory,
+            target: target,
+            action: action,
+            totalShortcuts: &totalShortcuts
+        )
+
+        // 鼠标按键分类 (始终显示)
+        addCategoryToMenu(
+            menu: menu,
+            category: SystemShortcut.mouseButtonsCategory,
+            target: target,
+            action: action,
+            totalShortcuts: &totalShortcuts
+        )
+
+        // Mos 鼠标滚动分类 (始终显示, 使用 Mos tag 样式)
+        addCategoryToMenu(
+            menu: menu,
+            category: SystemShortcut.mosMouseScrollCategory,
+            target: target,
+            action: action,
+            totalShortcuts: &totalShortcuts,
+            customImage: BrandTag.createTagImage(brand: .mos, fontSize: 7, height: 14)
+        )
+
+        // Logi 专有动作分类 (仅当触发键为 Logi 按键时显示, 使用 Logitech 品牌 tag 样式)
+        if showLogiActions {
+            addCategoryToMenu(
+                menu: menu,
+                category: SystemShortcut.logiActionsCategory,
+                target: target,
+                action: action,
+                totalShortcuts: &totalShortcuts,
+                customImage: BrandTag.createTagImage(brand: .logi, fontSize: 7, height: 14)
+            )
+        }
+
+        // 自定义绑定分隔线
+        menu.addItem(NSMenuItem.separator())
+
+        // "打开应用…" 菜单项 (representedObject 为字符串标记 __open__)
+        let openItem = NSMenuItem(
+            title: NSLocalizedString("open-target-action", comment: ""),
+            action: action,
+            keyEquivalent: ""
+        )
+        openItem.target = target
+        openItem.representedObject = "__open__" as NSString
+        if supportsSFSymbols {
+            if #available(macOS 11.0, *) {
+                openItem.image = createSymbolImage("arrow.up.forward.app")
+            }
+        }
+        menu.addItem(openItem)
+
+        // "自定义…" 菜单项 (representedObject 为字符串标记)
+        let customItem = NSMenuItem(
+            title: NSLocalizedString("custom-shortcut", comment: ""),
+            action: action,
+            keyEquivalent: ""
+        )
+        customItem.target = target
+        customItem.representedObject = "__custom__" as NSString
+        if supportsSFSymbols {
+            if #available(macOS 11.0, *) {
+                customItem.image = createSymbolImage("keyboard")
+            }
+        }
+        menu.addItem(customItem)
+    }
+
+    /// 将一个分类添加到菜单
+    private static func addCategoryToMenu(
+        menu: NSMenu,
+        category: (category: String, shortcuts: [SystemShortcut.Shortcut]),
+        target: AnyObject,
+        action: Selector,
+        totalShortcuts: inout Int,
+        customImage: NSImage? = nil
+    ) {
+        let categoryName = SystemShortcut.localizedCategoryName(category.category)
+        let categoryMenuItem = NSMenuItem(title: categoryName, action: nil, keyEquivalent: "")
+
+        if let custom = customImage {
+            categoryMenuItem.image = custom
+        } else if supportsSFSymbols {
+            if #available(macOS 11.0, *) {
+                let symbolName = SystemShortcut.categorySymbolName(category.category)
+                categoryMenuItem.image = createSymbolImage(symbolName)
+            }
+        }
+
+        let subMenu = NSMenu(title: categoryName)
+        subMenu.autoenablesItems = false
+        let availableShortcuts = category.shortcuts.filter { $0.isAvailable }
+        for shortcut in availableShortcuts {
+            let menuKeyEquivalent = shortcut.keyEquivalent
+
+            let shortcutMenuItem = NSMenuItem(
+                title: shortcut.localizedName,
+                action: action,
+                keyEquivalent: menuKeyEquivalent.keyEquivalent
+            )
+            shortcutMenuItem.keyEquivalentModifierMask = menuKeyEquivalent.modifierMask
+            shortcutMenuItem.target = target
+            shortcutMenuItem.representedObject = shortcut
+            shortcutMenuItem.toolTip = shortcut.localizedDescription ?? shortcut.localizedName
+            if shortcut.identifier == SystemShortcut.mouseLeftClick.identifier {
+                shortcutMenuItem.isEnabled = false
+            }
+
+            if supportsSFSymbols {
+                if #available(macOS 11.0, *) {
+                    shortcutMenuItem.image = createSymbolImage(shortcut.symbolName)
+                }
+            }
+
+            subMenu.addItem(shortcutMenuItem)
+            totalShortcuts += 1
+        }
+
+        categoryMenuItem.submenu = subMenu
+        menu.addItem(categoryMenuItem)
     }
 
 }
-

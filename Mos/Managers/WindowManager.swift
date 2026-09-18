@@ -39,8 +39,14 @@ extension WindowManager {
         }
         // 显示
         windowController.showWindow(self)
-        // 前置并激活
-        windowController.window?.makeKeyAndOrderFront(self)
+        // 前置并激活（已打开窗口也要置顶）
+        if let window = windowController.window {
+            if window.isMiniaturized {
+                window.deminiaturize(self)
+            }
+            window.makeKeyAndOrderFront(self)
+            window.orderFrontRegardless()
+        }
         NSApp.activate(ignoringOtherApps: true)
         // 显示 Dock 图标
         Utils.showDockIcon()

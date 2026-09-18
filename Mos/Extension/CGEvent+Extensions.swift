@@ -55,6 +55,31 @@ extension CGEvent {
         return KeyCode.mouseMap[mouseCode] ?? "Mouse(\(mouseCode))"
     }
 
+    /// 事件类型名 (用于调试日志)
+    var eventTypeName: String {
+        switch type {
+        case .leftMouseDown: return "leftMouseDown"
+        case .leftMouseUp: return "leftMouseUp"
+        case .rightMouseDown: return "rightMouseDown"
+        case .rightMouseUp: return "rightMouseUp"
+        case .mouseMoved: return "mouseMoved"
+        case .leftMouseDragged: return "leftMouseDragged"
+        case .rightMouseDragged: return "rightMouseDragged"
+        case .otherMouseDown: return "otherMouseDown"
+        case .otherMouseUp: return "otherMouseUp"
+        case .otherMouseDragged: return "otherMouseDragged"
+        case .keyDown: return "keyDown"
+        case .keyUp: return "keyUp"
+        case .flagsChanged: return "flagsChanged"
+        case .scrollWheel: return "scrollWheel"
+        case .tabletPointer: return "tabletPointer"
+        case .tabletProximity: return "tabletProximity"
+        case .null: return "null"
+        default:
+            return "type(\(type.rawValue))"
+        }
+    }
+
     /// 修饰键
     var isModifiers: Bool {
         KeyCode.modifierKeys.contains(keyCode)
@@ -69,7 +94,11 @@ extension CGEvent {
         if type == CGEventType.flagsChanged {
             return flags.contains(KeyCode.getKeyMask(keyCode))
         }
-        // 常规情况
+        // 鼠标按钮
+        if type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown {
+            return true
+        }
+        // 键盘
         return type == CGEventType.keyDown
     }
     var isKeyUp: Bool {
@@ -138,34 +167,63 @@ extension CGEvent {
 
     /// 是否为鼠标事件
     var isMouseEvent: Bool {
+        return isMouseButtonEvent
+    }
+
+    /// 是否为鼠标按键 down/up 事件
+    var isMouseButtonEvent: Bool {
         switch type {
-            case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+            case .leftMouseDown, .rightMouseDown, .otherMouseDown,
+                 .leftMouseUp, .rightMouseUp, .otherMouseUp:
                 return true
             default:
                 return false
         }
     }
 
+    /// 是否为鼠标拖拽事件
+    var isMouseDragEvent: Bool {
+        switch type {
+            case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
+                return true
+            default:
+                return false
+        }
+    }
+
+    /// 是否为普通鼠标移动事件
+    var isMouseMoveEvent: Bool {
+        return type == .mouseMoved
+    }
+
+    /// 是否属于鼠标交互相关事件 (按键/拖拽/移动)
+    var isMouseInteractionEvent: Bool {
+        return isMouseButtonEvent || isMouseDragEvent || isMouseMoveEvent
+    }
+
     /// 事件是否有效
     var isRecordable: Bool {
         // 键盘事件
         if isKeyboardEvent {
+            // F键允许无修饰键录制
+            if KeyCode.functionKeys.contains(keyCode) {
+                return true
+            }
             // 无修饰键不允许被记录
             if !hasModifiers {
                 return false
             }
-            // 纯修饰键不允许被记录
-            if hasModifiers && isKeyboardEvent && keyCode == 0 {
-                return false
-            }
+            // 注意: keyCode 0 是有效按键 "A"，不要误判为"无按键"
+            // 纯修饰键按下时事件类型是 flagsChanged，不会进入这里
             return true
         }
         // 鼠标事件
         if isMouseEvent {
-            // 如果是左中右则必须包含修饰键
-            if !hasModifiers && KeyCode.mouseMainKeys.contains(mouseCode) {
-                return false
+            // 左右键必须包含修饰键
+            if KeyCode.mouseMainKeys.contains(mouseCode) {
+                return hasModifiers
             }
+            // 侧键等允许无修饰键录制
             return true
         }
         // 其他不做处理
@@ -204,4 +262,3 @@ extension CGEvent {
     }
 
 }
-

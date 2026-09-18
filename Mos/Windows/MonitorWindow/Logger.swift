@@ -13,9 +13,11 @@ class Logger {
     // 解析信息
     class func getParsedLog(form event: CGEvent) -> String {
         let isTrackPad = ScrollEvent.isTrackpad(with: event)
+        let isRemote = ScrollUtils.shared.isFromRemoteApplication(event)
         let runningApplication = ScrollUtils.shared.getRunningApplication(from: event)
         return """
         Trackpad: \(isTrackPad)
+        Remote: \(isRemote)
         Path: \(runningApplication?.bundleURL?.path ?? runningApplication?.executableURL?.path ?? "")
         """
     }

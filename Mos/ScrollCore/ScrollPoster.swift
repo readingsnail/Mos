@@ -7,6 +7,7 @@
 //
 
 import Cocoa
+import os
 
 class ScrollPoster {
 
@@ -37,16 +38,43 @@ class ScrollPoster {
     private let manualSeparationThreshold: CFTimeInterval = 0.45
     private let trackingEndAdvance: CFTimeInterval = 0.04
     private let momentumEndDelay: CFTimeInterval = 0.13
-    // 外部依赖
-    var ref: (event: CGEvent?, proxy: CGEventTapProxy?) = (event: nil, proxy: nil)
+    // 状态锁和投递上下文
+    private var stateLock = os_unfair_lock_s()
+    private let dispatchContext = ScrollDispatchContext.shared
+    // 滚动配置快照: 主线程在 update 时捕获, CVDisplayLink 线程只读, 避免热路径跨线程读 Options/ScrollCore
+    private struct ConfigSnapshot {
+        var simTrackpadEnabled: Bool
+        var deadZone: Double
+    }
+    private var config = ConfigSnapshot(simTrackpadEnabled: false, deadZone: 1.0)
+    // CVDisplayLink 恢复机制
+    private var keeper: Timer?
+    private var lastCallbackTime: CFTimeInterval = 0.0
+    private var lastRecreateAttempt: CFTimeInterval = 0.0
+    private let recreateCooldown: CFTimeInterval = 3.0
+    // CVDisplayLink 刷新率自纠 (issue #958):
+    // 显示器唤醒/重连时会先短暂报告过渡刷新率 (如先 60Hz 再升 144Hz), 若重建正好落在这个窗口,
+    // 就会把 link 绑到偏低的刷新率, 使平滑滚动只按低帧率绘制 (卡顿), 而现有恢复机制识别不了.
+    // 对策: 每次建立 link 后延迟复查若干次, 发现 link 标称率明显低于显示器实际率就重建追平.
+    private var rateVerifyTimer: Timer?
+    private var rateVerifyAttemptsLeft = 0
+    private var isVerifying = false
+    private let rateVerifyDelays: [TimeInterval] = [2.0, 4.0, 8.0]
+    private let rateVerifyRatio = 0.7
+    // 主线程访问, 无需锁
+    var isAvailable: Bool { return poster != nil }
 }
 
 // MARK: - 滚动数据更新控制
 extension ScrollPoster {
-    func update(event: CGEvent, proxy: CGEventTapProxy, duration: Double, y: Double, x: Double, speed: Double, amplification: Double = 1) -> Self {
-        // 更新依赖数据
-        ref.event = event
-        ref.proxy = proxy
+    func update(event: CGEvent, duration: Double, y: Double, x: Double, speed: Double, amplification: Double = 1) -> Self {
+        guard dispatchContext.capture(event: event) else {
+            return self
+        }
+        os_unfair_lock_lock(&stateLock)
+        defer { os_unfair_lock_unlock(&stateLock) }
+        // 捕获本次手势的配置快照 (主线程读 Options/ScrollCore, CVDisplayLink 线程只读)
+        captureConfigSnapshotLocked()
         // 更新滚动配置
         self.duration = duration
         // 更新滚动数据
@@ -79,7 +107,9 @@ extension ScrollPoster {
         return self
     }
     func updateShifting(enable: Bool) {
+        os_unfair_lock_lock(&stateLock)
         shifting = enable
+        os_unfair_lock_unlock(&stateLock)
     }
     func shift(with nextValue: ( y: Double, x: Double )) -> (y: Double, x: Double) {
         // 如果按下 Shift, 则始终将滚动转为横向
@@ -96,15 +126,45 @@ extension ScrollPoster {
         }
     }
     func brake() {
-        ScrollPoster.shared.buffer = ScrollPoster.shared.current
+        os_unfair_lock_lock(&stateLock)
+        buffer = current
         perform(ScrollPhase.shared.onMomentumFinish(), emitTargetImmediately: true)
         manualInputEnded = true
         momentumActive = false
         momentumEndScheduledTime = nil
+        os_unfair_lock_unlock(&stateLock)
     }
     func reset() {
+        dispatchContext.invalidateAll()
+        os_unfair_lock_lock(&stateLock)
+        resetUnlocked()
+        os_unfair_lock_unlock(&stateLock)
+    }
+
+#if DEBUG
+    func captureConfigSnapshotForTests() {
+        os_unfair_lock_lock(&stateLock)
+        captureConfigSnapshotLocked()
+        os_unfair_lock_unlock(&stateLock)
+    }
+    var configSnapshotForTests: (simTrackpadEnabled: Bool, deadZone: Double) {
+        os_unfair_lock_lock(&stateLock)
+        defer { os_unfair_lock_unlock(&stateLock) }
+        return (config.simTrackpadEnabled, config.deadZone)
+    }
+
+    func recordSkippedSyntheticEvent() {
+        dispatchContext.recordSkippedSyntheticEvent()
+    }
+
+    func diagnosticsSnapshot() -> (postedFrames: UInt64, droppedFramesByGeneration: UInt64, droppedFramesByTTL: UInt64, skippedSyntheticEvents: UInt64, updateSnapshotFailures: UInt64) {
+        dispatchContext.diagnosticsSnapshot()
+    }
+#endif
+
+    private func resetUnlocked() {
         // 重置数值
-        ref = (event: nil, proxy: nil)
+        dispatchContext.clearContext()
         current = ( y: 0.0, x: 0.0 )
         delta = ( y: 0.0, x: 0.0 )
         buffer = ( y: 0.0, x: 0.0 )
@@ -123,20 +183,47 @@ extension ScrollPoster {
 extension ScrollPoster {
     // 初始化 CVDisplayLink
     func create() {
-        // 新建一个 CVDisplayLinkSetOutputCallback 来执行循环
-        CVDisplayLinkCreateWithActiveCGDisplays(&poster)
-        if let validPoster = poster {
+        // 清理旧的 CVDisplayLink
+        if let old = poster {
+            if CVDisplayLinkIsRunning(old) {
+                CVDisplayLinkStop(old)
+            }
+            poster = nil
+        }
+        // 创建新的 CVDisplayLink, 检查返回值
+        var newPoster: CVDisplayLink?
+        let result = CVDisplayLinkCreateWithActiveCGDisplays(&newPoster)
+        if result == kCVReturnSuccess, let validPoster = newPoster {
             CVDisplayLinkSetOutputCallback(validPoster, { (displayLink, inNow, inOutputTime, flagsIn, flagsOut, displayLinkContext) -> CVReturn in
                 ScrollPoster.shared.processing()
                 return kCVReturnSuccess
             }, nil)
+            poster = validPoster
+            // 建立成功后安排刷新率复查; 复查内部触发的重建 (isVerifying) 不重置复查序列
+            if !isVerifying { scheduleRateVerify() }
+        } else {
+            poster = nil
+            NSLog("ScrollPoster: CVDisplayLink creation failed (%d)", result)
         }
     }
     // 启动事件发送器
     func tryStart() {
-        if let validPoster = poster {
-            if !CVDisplayLinkIsRunning(validPoster) {
-                CVDisplayLinkStart(validPoster)
+        guard let validPoster = poster else {
+            if !recreateDisplayLink() {
+                // cooldown 拒绝了重建; 清理陈旧 buffer 防止恢复后滚动跳变
+                reset()
+            }
+            return
+        }
+        if !CVDisplayLinkIsRunning(validPoster) {
+            let result = CVDisplayLinkStart(validPoster)
+            if result == kCVReturnSuccess {
+                // 给 keeper 一个宽限期, 防止误判新启动的 poster 为僵尸
+                os_unfair_lock_lock(&stateLock)
+                lastCallbackTime = CFAbsoluteTimeGetCurrent()
+                os_unfair_lock_unlock(&stateLock)
+            } else {
+                let _ = recreateDisplayLink()
             }
         }
     }
@@ -146,14 +233,12 @@ extension ScrollPoster {
         if let validPoster = poster {
             CVDisplayLinkStop(validPoster)
         }
+        // 失效旧会话异步帧，收尾帧使用新代次
+        dispatchContext.advanceGeneration()
+        os_unfair_lock_lock(&stateLock)
 
-        // 判断是否启用触控板模拟
-        var enableSimTrackpad = Options.shared.scroll.smoothSimTrackpad
-        if let application = ScrollCore.shared.application {
-            enableSimTrackpad = application.inherit
-                ? Options.shared.scroll.smoothSimTrackpad
-                : application.scroll.smoothSimTrackpad
-        }
+        // 判断是否启用触控板模拟 (读 update 时主线程捕获的快照, 避免跨线程读)
+        let enableSimTrackpad = config.simTrackpadEnabled
         let plan: ScrollPhase.TransitionPlan
         if requestedPhase == Phase.MomentumEnd {
             plan = ScrollPhase.shared.onMomentumFinish()
@@ -165,20 +250,120 @@ extension ScrollPoster {
         if enableSimTrackpad {
             perform(plan, emitTargetImmediately: true)
         } else {
-            if let validEvent = ref.event, ScrollUtils.shared.isEventTargetingChrome(validEvent) {
-                validEvent
-                    .setDoubleValueField(
-                        .scrollWheelEventScrollPhase,
-                        value: PhaseValueMapping[Phase.TrackingEnd]![PhaseItem.Scroll]!
-                    )
-                validEvent.setDoubleValueField(.scrollWheelEventMomentumPhase, value: PhaseValueMapping[Phase.TrackingEnd]![PhaseItem.Momentum]!)
-                post(ref, (y: 0.0, x: 0.0))
+            if let snapshot = dispatchContext.preparePostingSnapshot(),
+               ScrollUtils.shared.isEventTargetingChrome(snapshot.event),
+               let phaseValues = phaseValues(for: .TrackingEnd) {
+                _ = post(
+                    snapshot,
+                    (y: 0.0, x: 0.0),
+                    phaseOverride: phaseValues,
+                    fallbackToCurrentPhase: false
+                )
             }
         }
         manualInputEnded = true
         momentumActive = false
-        // 重置参数
-        reset()
+        // 重置参数 (不递增 generation, 保留本次收尾帧有效性)
+        resetUnlocked()
+        os_unfair_lock_unlock(&stateLock)
+#if DEBUG
+        let diag = diagnosticsSnapshot()
+        if diag.droppedFramesByGeneration > 0 || diag.droppedFramesByTTL > 0 || diag.updateSnapshotFailures > 0 {
+            NSLog("[ScrollPoster] diag: posted=%llu dropGen=%llu dropTTL=%llu skipSynth=%llu snapFail=%llu",
+                  diag.postedFrames, diag.droppedFramesByGeneration, diag.droppedFramesByTTL,
+                  diag.skippedSyntheticEvents, diag.updateSnapshotFailures)
+        }
+#endif
+    }
+    // 重建 CVDisplayLink (带冷却期)
+    @discardableResult
+    func recreateDisplayLink() -> Bool {
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now - lastRecreateAttempt >= recreateCooldown else { return false }
+        lastRecreateAttempt = now
+        create()
+        if let validPoster = poster {
+            let result = CVDisplayLinkStart(validPoster)
+            if result == kCVReturnSuccess {
+                os_unfair_lock_lock(&stateLock)
+                lastCallbackTime = CFAbsoluteTimeGetCurrent()
+                os_unfair_lock_unlock(&stateLock)
+            } else {
+                NSLog("ScrollPoster: CVDisplayLink start failed after recreate (%d)", result)
+            }
+        }
+        return true
+    }
+    // 守护定时器 (与 Interceptor 的 keeper 模式一致)
+    func startKeeper() {
+        keeper?.invalidate()
+        keeper = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.healthCheck()
+        }
+    }
+    func stopKeeper() {
+        keeper?.invalidate()
+        keeper = nil
+        rateVerifyTimer?.invalidate()
+        rateVerifyTimer = nil
+        rateVerifyAttemptsLeft = 0
+    }
+    private func healthCheck() {
+        guard let validPoster = poster else {
+            recreateDisplayLink()
+            return
+        }
+        if CVDisplayLinkIsRunning(validPoster) {
+            os_unfair_lock_lock(&stateLock)
+            let lastTime = lastCallbackTime
+            os_unfair_lock_unlock(&stateLock)
+            // lastTime > 0 避免首次回调前误判
+            if lastTime > 0 && CFAbsoluteTimeGetCurrent() - lastTime > 2.0 {
+                NSLog("ScrollPoster: zombie CVDisplayLink detected, recreating")
+                recreateDisplayLink()
+            }
+        }
+    }
+
+    // MARK: 刷新率自纠 (见属性处说明)
+    // 建立 link 后调用: 重置复查序列并安排第一次复查
+    private func scheduleRateVerify() {
+        rateVerifyAttemptsLeft = rateVerifyDelays.count
+        armNextRateVerify()
+    }
+    private func armNextRateVerify() {
+        rateVerifyTimer?.invalidate()
+        guard rateVerifyAttemptsLeft > 0 else { rateVerifyTimer = nil; return }
+        let delay = rateVerifyDelays[rateVerifyDelays.count - rateVerifyAttemptsLeft]
+        rateVerifyTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            self?.verifyRateAndFixIfNeeded()
+        }
+    }
+    // 复查: link 标称率明显低于显示器实际率 -> 重建追平 (幂等, 不受 recreateCooldown 限制)
+    private func verifyRateAndFixIfNeeded() {
+        rateVerifyAttemptsLeft -= 1
+        guard let current = poster else { rateVerifyTimer = nil; return }
+        let nominal = linkNominalHz(current)
+        let maxHz = maxActiveDisplayHz()
+        guard nominal > 1, maxHz > 1, nominal < maxHz * rateVerifyRatio else {
+            // 已追平显示器刷新率, 结束复查
+            rateVerifyTimer = nil
+            rateVerifyAttemptsLeft = 0
+            return
+        }
+        NSLog("ScrollPoster: display link rate %.0fHz below display %.0fHz, recreating", nominal, maxHz)
+        // 保持原运行状态: 若正在滚动 (running) 则重建后重新启动
+        let wasRunning = CVDisplayLinkIsRunning(current)
+        isVerifying = true
+        create()
+        isVerifying = false
+        if wasRunning, let refreshed = poster {
+            CVDisplayLinkStart(refreshed)
+        }
+        // 自纠说明显示器仍在过渡: 清除冷却, 让后续 screenChange 能及时用最终配置重建
+        lastRecreateAttempt = 0
+        // 这次重建可能仍落在过渡态, 继续后续复查直到追平或用尽次数
+        armNextRateVerify()
     }
 }
 
@@ -202,29 +387,19 @@ private extension ScrollPoster {
 
     func emitPhase(_ item: (Phase, Phase?), delta: (y: Double, x: Double)) {
         ScrollPhase.shared.apply(phase: item.0, autoAdvance: item.1)
-        guard let proxy = ref.proxy, let eventClone = ref.event?.copy() else {
+        guard let snapshot = dispatchContext.preparePostingSnapshot() else {
             ScrollPhase.shared.didDeliverFrame()
             return
         }
-        var enableSimTrackpad = Options.shared.scroll.smoothSimTrackpad
-        if let application = ScrollCore.shared.application {
-            enableSimTrackpad = application.inherit ? Options.shared.scroll.smoothSimTrackpad : application.scroll.smoothSimTrackpad
-        }
-        if enableSimTrackpad {
-            if let scrollValue = PhaseValueMapping[item.0]?[PhaseItem.Scroll], let momentumValue = PhaseValueMapping[item.0]?[PhaseItem.Momentum] {
-                eventClone.setDoubleValueField(.scrollWheelEventScrollPhase, value: scrollValue)
-                eventClone.setDoubleValueField(.scrollWheelEventMomentumPhase, value: momentumValue)
-            }
-        }
-        eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: delta.y)
-        eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: delta.x)
-        eventClone.setDoubleValueField(.scrollWheelEventIsContinuous, value: 1.0)
-        DispatchQueue.main.async { eventClone.tapPostEvent(proxy) }
-        ScrollPhase.shared.didDeliverFrame()
+        let phaseOverride = resolveSimTrackpadEnabled() ? phaseValues(for: item.0) : nil
+        _ = post(snapshot, delta, phaseOverride: phaseOverride, fallbackToCurrentPhase: false)
     }
 
     // 处理滚动事件
     func processing() {
+        var pendingStopPhase: Phase?
+        os_unfair_lock_lock(&stateLock)
+        lastCallbackTime = CFAbsoluteTimeGetCurrent()
         // 计算插值
         let frame = (
             y: Interpolator.lerp(src: current.y, dest: buffer.y, trans: duration),
@@ -255,7 +430,7 @@ private extension ScrollPoster {
         let residualY = buffer.y - current.y
         let residualX = buffer.x - current.x
         let residualMagnitude = max(residualY.magnitude, residualX.magnitude)
-        let deadZone = Options.shared.scroll.deadZone
+        let deadZone = config.deadZone
         if manualInputEnded && residualMagnitude > deadZone {
             if !momentumActive {
                 perform(ScrollPhase.shared.onMomentumStart(), emitTargetImmediately: false)
@@ -278,63 +453,117 @@ private extension ScrollPoster {
         // 发送滚动结果 - 只有当输出值超过死区阈值时才发送
         let outputMagnitude = max(abs(shiftedValue.y), abs(shiftedValue.x))
         if outputMagnitude > deadZone {
-            post(ref, shiftedValue)
-}
+            _ = post(shiftedValue)
+        }
 
         if let scheduled = momentumEndScheduledTime, momentumActive {
             if now >= scheduled {
                 momentumEndScheduledTime = nil
                 momentumActive = false
-                stop(Phase.MomentumEnd)
-                return
+                pendingStopPhase = .MomentumEnd
             }
         }
-        if manualInputEnded && !momentumActive && residualMagnitude <= deadZone {
+        if pendingStopPhase == nil && manualInputEnded && !momentumActive && residualMagnitude <= deadZone {
             let pendingStop = trackingEndScheduledTime != nil && now >= trackingEndScheduledTime!
             let outputSettled = outputMagnitude <= deadZone
             if pendingStop && outputSettled {
                 trackingEndScheduledTime = nil
-                stop(.TrackingEnd)
-                return
+                pendingStopPhase = .TrackingEnd
             }
         } else {
             trackingEndScheduledTime = nil
         }
-    }
-    func post(_ r: (event: CGEvent?, proxy: CGEventTapProxy?), _ v: (y: Double, x: Double)) {
-        if let proxy = r.proxy, let eventClone = r.event?.copy() {
-            // 判断是否需要模拟触控板 Phase
-            var enableSimTrackpad = Options.shared.scroll.smoothSimTrackpad
-            if let application = ScrollCore.shared.application, !application.inherit {
-                enableSimTrackpad = application.scroll.smoothSimTrackpad
-            }
-            
-            // 设置阶段数据和触控板特征字段
-            if enableSimTrackpad {
-                // 获取当前 phase 值, 然后更新对应 proxy 值
-                let currentPhase = ScrollPhase.shared.phase
-                if let scrollValue = PhaseValueMapping[currentPhase]?[.Scroll], let momentumValue = PhaseValueMapping[currentPhase]?[.Momentum] {
-                    eventClone.setDoubleValueField(.scrollWheelEventScrollPhase, value: scrollValue)
-                    eventClone.setDoubleValueField(.scrollWheelEventMomentumPhase, value: momentumValue)
-                }
-            }
-
-            // 设置滚动数据
-            eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: v.y)
-            eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: v.x)
-
-            // 是否连续滚动: 始终为 1.0
-            eventClone.setDoubleValueField(.scrollWheelEventIsContinuous, value: 1.0)
-
-            // EventTapProxy:
-            // 标识了 EventTapCallback 在事件流中接收到事件的特定位置, 其粒度小于 tap 本身
-            // 使用 tapPostEvent 可以将自定义的事件发布到 proxy 标识的位置, 避免被 EventTapCallback 本身重复接收或处理
-            // 新发布的事件将早于 EventTapCallback 所处理的事件进入系统, 会被所有后续的 EventTap 接收
-            // fixed by @shichangone MR: https://github.com/Caldis/Mos/pull/523
-            DispatchQueue.main.async { eventClone.tapPostEvent(proxy) }
-
-            // 更新阶段切换帧
-            ScrollPhase.shared.didDeliverFrame()
+        os_unfair_lock_unlock(&stateLock)
+        if let phase = pendingStopPhase {
+            stop(phase)
+            return
         }
+    }
+
+    /// 主线程读取当前 (全局 / 例外应用) 配置存入快照。调用方须持有 stateLock。
+    func captureConfigSnapshotLocked() {
+        let simTrackpad: Bool
+        if let application = ScrollCore.shared.application, !application.inherit {
+            simTrackpad = application.scroll.smoothSimTrackpad
+        } else {
+            simTrackpad = Options.shared.scroll.smoothSimTrackpad
+        }
+        config = ConfigSnapshot(
+            simTrackpadEnabled: simTrackpad,
+            deadZone: Options.shared.scroll.deadZone
+        )
+    }
+
+    func resolveSimTrackpadEnabled() -> Bool {
+        return config.simTrackpadEnabled
+    }
+
+    func phaseValues(for phase: Phase) -> (scroll: Double, momentum: Double)? {
+        guard let scrollValue = PhaseValueMapping[phase]?[.Scroll],
+              let momentumValue = PhaseValueMapping[phase]?[.Momentum] else {
+            return nil
+        }
+        return (scroll: scrollValue, momentum: momentumValue)
+    }
+
+    @discardableResult
+    func post(_ snapshot: ScrollDispatchContext.PostingSnapshot, _ v: (y: Double, x: Double), phaseOverride: (scroll: Double, momentum: Double)? = nil, fallbackToCurrentPhase: Bool = true) -> Bool {
+        if let override = phaseOverride {
+            snapshot.event.setDoubleValueField(.scrollWheelEventScrollPhase, value: override.scroll)
+            snapshot.event.setDoubleValueField(.scrollWheelEventMomentumPhase, value: override.momentum)
+        } else if fallbackToCurrentPhase,
+                  resolveSimTrackpadEnabled(),
+                  let currentPhaseValues = phaseValues(for: ScrollPhase.shared.phase) {
+            snapshot.event.setDoubleValueField(.scrollWheelEventScrollPhase, value: currentPhaseValues.scroll)
+            snapshot.event.setDoubleValueField(.scrollWheelEventMomentumPhase, value: currentPhaseValues.momentum)
+        }
+        snapshot.event.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: v.y)
+        snapshot.event.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: v.x)
+        // 是否连续滚动: 始终为 1.0
+        snapshot.event.setDoubleValueField(.scrollWheelEventIsContinuous, value: 1.0)
+        ScrollUtils.shared.markSyntheticSmoothEvent(snapshot.event)
+        // 通过 CGEventPostToPid 直投目标进程:
+        // 不依赖 proxy (消除崩溃), 不经过 tap 链重新路由 (动量不跟随光标)
+        // ref: @shichangone MR: https://github.com/Caldis/Mos/pull/523, issue #868
+        dispatchContext.enqueue(snapshot)
+        ScrollPhase.shared.didDeliverFrame()
+        return true
+    }
+
+    @discardableResult
+    func post(_ v: (y: Double, x: Double), phaseOverride: (scroll: Double, momentum: Double)? = nil, fallbackToCurrentPhase: Bool = true) -> Bool {
+        guard let snapshot = dispatchContext.preparePostingSnapshot() else {
+            return false
+        }
+        return post(
+            snapshot,
+            v,
+            phaseOverride: phaseOverride,
+            fallbackToCurrentPhase: fallbackToCurrentPhase
+        )
+    }
+}
+
+// MARK: - 显示器刷新率查询 (刷新率自纠使用)
+private extension ScrollPoster {
+    /// CVDisplayLink 当前绑定显示器的标称刷新率 (Hz); 无效返回 -1
+    func linkNominalHz(_ link: CVDisplayLink) -> Double {
+        let period = CVDisplayLinkGetNominalOutputVideoRefreshPeriod(link)
+        // 无效/indefinite 周期时 timeValue 或 timeScale 为 0
+        guard period.timeValue != 0, period.timeScale != 0 else { return -1 }
+        let seconds = Double(period.timeValue) / Double(period.timeScale)
+        return seconds > 0 ? 1.0 / seconds : -1
+    }
+    /// 当前活跃显示器里最高刷新率 (Hz); 取不到返回 -1
+    func maxActiveDisplayHz() -> Double {
+        var count: UInt32 = 0
+        guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else { return -1 }
+        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+        guard CGGetActiveDisplayList(count, &ids, &count) == .success else { return -1 }
+        var mx = -1.0
+        for id in ids.prefix(Int(count)) {
+            if let hz = CGDisplayCopyDisplayMode(id)?.refreshRate, hz > mx { mx = hz }
+        }
+        return mx
     }
 }
